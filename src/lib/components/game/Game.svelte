@@ -4,6 +4,7 @@
 	import Dice from "$lib/components/ui/dice/Dice.svelte"
 	import { tiles, type Tile } from "./tiles/tiles";
 	import type { ElementProps } from "./tiles/elements/elementProps";
+	import { fade } from "svelte/transition";
 
 	const {
 		players = ["Test1", "Test2", "Test3", "Test4"]
@@ -123,24 +124,11 @@
 				/>
 			{/if}
 			{#if currentTile !== null}
-				<div class="backdrop bg-black/60 w-full h-full flex flex-col items-center justify-center">
+				<div transition:fade class="backdrop bg-black/60 w-full h-full flex flex-col items-center justify-center">
 					<p class="text-white text-2xl">{currentTile.message}</p>
 					{#if currentTile.customElement}
 						<currentTile.customElement {...{...currentTile.props, ...buildDefaultOverlayProps()}}/>
 					{/if}
-					<style>
-						@keyframes fade-in {
-							0% {
-								opacity: 0%;
-							}
-							100% {
-								opacity: 100%;
-							}
-						}
-						.backdrop {
-							animation: fade-in 0.5s linear;
-						}
-					</style>
 				</div>
 			{/if}
 		</div>

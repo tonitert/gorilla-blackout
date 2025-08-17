@@ -7,7 +7,7 @@
         result = () => {},
         timeBetweenChanges = 70,
         changesBeforeSettle = 9,
-        finalWaitTime = 1000
+        finalWaitTime = 1200
 	 }: {
 		count?: number
         result?: (results: number[]) => void
@@ -34,9 +34,7 @@
             )
         }
         await wait(finalWaitTime);
-        console.log(diceNumbers.map((num) => num + 1))
-        result([14])
-        //result(diceNumbers.map((num) => num + 1))
+        result(diceNumbers.map((num) => num + 1))
     })
 </script>
 
