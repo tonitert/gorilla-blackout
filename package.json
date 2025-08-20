@@ -24,6 +24,7 @@
 		"@neoconfetti/svelte": "^2.0.0",
 		"@playwright/test": "^1.49.1",
 		"@sveltejs/adapter-static": "^3.0.8",
+		"@sveltejs/enhanced-img": "^0.8.1",
 		"@sveltejs/kit": "^2.22.0",
 		"@sveltejs/vite-plugin-svelte": "^6.0.0",
 		"@tailwindcss/vite": "^4.0.0",
@@ -32,16 +33,14 @@
 		"eslint": "^9.18.0",
 		"eslint-config-prettier": "^10.0.1",
 		"eslint-plugin-svelte": "^3.0.0",
-		"formsnap": "^2.0.1",
 		"globals": "^16.0.0",
 		"prettier": "^3.4.2",
 		"prettier-plugin-svelte": "^3.3.3",
 		"prettier-plugin-tailwindcss": "^0.6.11",
 		"svelte": "^5.25.0",
 		"svelte-check": "^4.0.0",
-		"sveltekit-superforms": "^2.27.1",
 		"tailwind-merge": "^3.3.1",
-		"tailwind-variants": "^2.1.0",
+		"tailwind-variants": "^1.0.0",
 		"tailwindcss": "^4.0.0",
 		"tw-animate-css": "^1.3.6",
 		"typescript": "^5.0.0",
@@ -52,12 +51,15 @@
 		"@inlang/paraglide-js": "^2.0.0",
 		"@threlte/core": "^8.1.4",
 		"@threlte/extras": "^9.4.4",
+		"formsnap": "^2.0.1",
+		"sveltekit-superforms": "^2.27.1",
 		"three": "^0.179.1",
-		"zod": "^4.0.17"
+		"zod": "^3.25.76"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
-			"esbuild"
+			"esbuild",
+			"sharp"
 		]
 	}
 }

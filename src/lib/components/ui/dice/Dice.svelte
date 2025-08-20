@@ -7,19 +7,22 @@
         result = () => {},
         timeBetweenChanges = 70,
         changesBeforeSettle = 9,
-        finalWaitTime = 1200
+        finalWaitTime = 2000,
+        riggedResult
 	 }: {
 		count?: number
         result?: (results: number[]) => void
         timeBetweenChanges?: number
         changesBeforeSettle?: number
         finalWaitTime?: number
+        riggedResult?: number[]
 	} = $props();
 
-    const dieSize = "100px";
+    const diceSizePercentage = 40;
     const images = ["1.svg", "2.svg", "3.svg", "4.svg", "5.svg", "6.svg"]
     let diceNumbers = $state(Array(dieCount).fill(0));
     let rolling = false;
+
     onMount(async () => {
         if (rolling) {
             return;
@@ -34,11 +37,15 @@
             )
         }
         await wait(finalWaitTime);
-        result(diceNumbers.map((num) => num + 1))
+        if (riggedResult) {
+            result(riggedResult);
+        } else {
+            result(diceNumbers.map((num) => num + 1));
+        }
     })
 </script>
 
-<div>
+<div class="w-full h-full flex flex-wrap justify-center items-center gap-2">
     {#each images as img}
 		<link rel="preload" as="image" href="/dice/{img}">
 	{/each}
@@ -47,7 +54,7 @@
             class="dice aspect-square" 
             alt="Die with number {num + 1}" 
             src="/dice/{images[num]}"
-            style="width: {dieSize};"
+            style="width: {diceSizePercentage / diceNumbers.length}%;"
         />
 	{/each}
 </div>

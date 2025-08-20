@@ -48,3 +48,11 @@ export function getRandomInt(min: number, max: number): number {
   }
   return Math.floor(Math.random() * (max - min)) + min;
 }
+
+export function getRandomIntExcluding(min: number, max: number, exclude: number): number {
+  let result: number;
+  do {
+    result = getRandomInt(min, max);
+  } while (result === exclude);
+  return result;
+}
