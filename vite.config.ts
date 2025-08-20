@@ -10,6 +10,7 @@ export default defineConfig({
 			"tonipc.kitty-celsius.ts.net"
 		]
 	},
+	
 	plugins: [
 		tailwindcss(),
 		sveltekit(),
