@@ -26,6 +26,7 @@
 	import { ElementField, FieldErrors, Fieldset, Legend } from "formsnap";
 	import { gameStateStore, type GameState } from "$lib/gameState.svelte";
 	import Button from "../ui/button/button.svelte";
+    import logo from "$lib/assets/logo.webp";
 
     const {
         onStart,
@@ -67,13 +68,11 @@
 </script>
 
 <div class="p-5 space-y-6 max-w-150 flex flex-col m-auto">
-    <h1 class="m-auto text-center mt-10 text-2xl">
-        Gorilla Blackout
-    </h1>
+    <img src={logo} alt="Blackout (Gorilla Edition) Logo" class="m-auto" />
 
     {#if pendingState}
         <div class="pending-game p-3 rounded-xl shadow-grey ring-gray-600 ring shadow-2xl/30 mt-10 flex gap-2 flex-col">
-			<h2 class="text-xl">Edellinen peli löytyi. Haluatko jatkaa?</h2>
+			<h2 class="text-xl">Aikaisempi peli löytyi. Haluatko jatkaa?</h2>
 			<p>Pelaajat:</p>
 			<ul>
 				{#each pendingState.players as player}

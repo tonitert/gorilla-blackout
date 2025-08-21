@@ -2,6 +2,13 @@
 	import { onMount } from "svelte";
     import { wait, getRandomInt } from "$lib/helpers/wait"
 
+    import dice1 from "$lib/assets/dice/1.svg";
+    import dice2 from "$lib/assets/dice/2.svg";
+    import dice3 from "$lib/assets/dice/3.svg";
+    import dice4 from "$lib/assets/dice/4.svg";
+    import dice5 from "$lib/assets/dice/5.svg";
+    import dice6 from "$lib/assets/dice/6.svg";
+
     const {
 		count: dieCount = 1,
         result = () => {},
@@ -19,7 +26,7 @@
 	} = $props();
 
     const diceSizePercentage = 40;
-    const images = ["1.svg", "2.svg", "3.svg", "4.svg", "5.svg", "6.svg"]
+    const images = [dice1, dice2, dice3, dice4, dice5, dice6];
     let diceNumbers = $state(Array(dieCount).fill(0));
     let rolling = false;
 
@@ -47,13 +54,13 @@
 
 <div class="w-full h-full flex flex-wrap justify-center items-center gap-2">
     {#each images as img}
-		<link rel="preload" as="image" href="/dice/{img}">
+		<link rel="preload" as="image" href="{img}">
 	{/each}
     {#each diceNumbers as num}
 		<img 
             class="dice aspect-square" 
             alt="Die with number {num + 1}" 
-            src="/dice/{images[num]}"
+            src="{images[num]}"
             style="width: {diceSizePercentage / diceNumbers.length}%;"
         />
 	{/each}

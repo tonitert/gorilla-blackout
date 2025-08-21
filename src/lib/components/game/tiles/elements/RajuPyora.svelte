@@ -6,10 +6,14 @@
 
     import wheel5050 from '$lib/assets/5050.png';
     import wheelImage from '$lib/assets/rajupyora.png';
+	import MoveToStart from "./raju/MoveToStart.svelte";
 
     const {
 		players,
-        setActionButtonText
+        setActionButtonText,
+        movePlayer,
+        currentPlayerIndex,
+        positions
 	 }: ElementProps = $props();
 
     let spinnerInstance: SvelteComponent | undefined = $state(undefined);
@@ -22,7 +26,13 @@
             name: "Juo ja jaa 10!",
         },
         {
-            name: "Palaa aloitusruutuun!"
+            name: "Palaa aloitusruutuun!",
+            element: MoveToStart,
+            props: {
+                movePlayer,
+                currentPlayerIndex,
+                positions
+            }
         },
         // 50/50
         new SpinnerOption(
@@ -53,7 +63,7 @@
             "Supersääntö!", 
             Text, 
             {
-                text: "Keksi peliin sääntö. Säännön rikkomisesta sakko 1 shotti."
+                text: "Keksi peliin supersääntö! Erona tavalliseen sääntöön supersääntö pysyy voimassa koko pelin ajan, ja rangaistus sen rikkomisesta on shotti."
             }
         ),
         {

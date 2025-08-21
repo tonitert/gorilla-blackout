@@ -7,6 +7,6 @@
 	 }: ElementPropsTile = $props();
 </script>
 
-<p class="">
-    Pelaa peliä kivi-paperi-sakset pelaajan {players[getRandomIntExcluding(0, players.length, currentPlayerIndex)].name} kanssa. Häviäjä juo shotin.
+<p class="text-center text-xl">
+    Pelaa kivi-paperi-sakset pelaajan {players[getRandomIntExcluding(0, players.length, currentPlayerIndex)].name} kanssa. Häviäjä juo shotin.
 </p>

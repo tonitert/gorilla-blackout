@@ -13,10 +13,7 @@ const config = {
 			fallback: undefined,
 			precompress: false,
 			strict: true
-		}),
-		paths: {
-			base: process.env.includes('dev') ? '' : '/gorilla-blackout'
-		}
+		})
 	}
 };
 

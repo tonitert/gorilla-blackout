@@ -8,6 +8,6 @@
 	 }: TextProps = $props();
 </script>
 
-<p class="m-5">
+<p class="m-5 text-center text-xl">
     {text}
 </p>

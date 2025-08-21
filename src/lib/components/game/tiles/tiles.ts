@@ -7,55 +7,76 @@ import type { ElementProps } from "./elements/elementProps"
 import DiceRollBack from "./elements/DiceRollBack.svelte"
 import Dices35Back from "./elements/Dices35Back.svelte"
 import SixToPass from "./elements/SixToPass.svelte"
-import { message } from "sveltekit-superforms"
+import { tileImages } from "../tileImages";
 
-export interface Tile<T extends object> {
+export interface Tile<T extends object, Y extends object> {
+    image?: string
     message?: string
     customElement?: Component<ElementProps & T, {onActionButtonClick?: () => void}>
     props?: T
+    moveStartMessage?: string
+    moveStartElement?: Component<ElementProps & Y, {onActionButtonClick?: () => void}>
+    moveStartProps?: Y
     customWait?: boolean
     unskippable?: boolean
 }
 
-const tileTypes = {
+const tileTypes: {[key: string]: Tile<any, any>} = {
     challenge: {
+        image: tileImages.haaste,
         message: "Haaste!",
         customElement: Haaste
     },
     drink2: {
+        image: tileImages.kaksihuikkaa,
         message: "Juo 2 huikkaa!"
     },
     drink3: {
+        image: tileImages.kolmehuikkaa,
         message: "Juo 3 huikkaa!"
     },
     drink4: {
+        image: tileImages.neljahuikkaa,
         message: "Juo 4 huikkaa!"
     },
+    paskaHeitto: {
+        image: tileImages.viisiHuikkaa,
+        message: "Juo 5 huikkaa!"
+    },
     drink5: {
+        image: tileImages.viisiHuikkaa,
         message: "Juo 5 huikkaa!"
     },
     give3: {
+        image: tileImages.jaa3,
         message: "Jaa 3 huikkaa!",
     },
     give6: {
+        image: tileImages.jaa6,
         message: "Jaa 6 huikkaa!",
     },
     give9: {
+        image: tileImages.jaa9,
         message: "Jaa 9 huikkaa!",
     },
     mostDrunkDrinks3: {
+        image: tileImages.enitenSuba,
         message: "Eniten kännissä juo 3 huikkaa!"
     },
     leastDrunkDrinks5: {
+        image: tileImages.vahitenSuba,
         message: "Vähiten kännissä juo 5 huikkaa!"
     },
     everyoneDrinks2: {
+        image: tileImages.kaikkiJuo2,
         message: "Kaikki juo 2 huikkaa!"
     },
     everyoneDrinks3ExceptYou: {
+        image: tileImages.kaikkiJuo3,
         message: "Kaikki juo 3 huikkaa, paitsi sinä!"
     },
     onetwothree: {
+        image: tileImages.yksikaksikolme,
         message: "1, 2, 3",
         customElement: Text,
         props: {
@@ -63,9 +84,11 @@ const tileTypes = {
         }
     },
     shutup: {
+        image: tileImages.turpaHiljaa,
         message: "Ole hiljaa 5 minuuttia!"
     },
     safe: {
+        image: tileImages.safe,
         message: "Safe!",
         customElement: Text,
         props: {
@@ -73,9 +96,11 @@ const tileTypes = {
         }
     },
     shot: {
+        image: tileImages.shotti,
         message: "Ota shotti!"
     },
     waterfall: {
+        image: tileImages.vesiputous,
         message: "Vesiputous",
         customElement: Text,
         props: {
@@ -86,9 +111,11 @@ const tileTypes = {
         customElement: RajuPyora
     },
     water: {
+        image: tileImages.valivesi,
         message: "Välivesi"
     },
     groupShot: {
+        image: tileImages.ryhmashotti,
         message: "Ryhmäshotti",
         customElement: Text,
         props: {
@@ -96,34 +123,44 @@ const tileTypes = {
         }
     },
     leftDrinks3: {
+        image: tileImages.vasenSipuli,
         message: "Vasen kaveri juo 3 huikkaa!"
     },
     rightDrinks3: {
+        image: tileImages.oikeaMies,
         message: "Oikea kaveri juo 3 huikkaa!"
     },
     dieRollBack: {
+        image: tileImages.noppa,
         message: "Nopanheitto takaisin!",
         customElement: DiceRollBack
     },
     dieRollBackx2: {
-        message: "Nopanheitto takaisin, tuplana!",
+        image: tileImages.noppaX2,
+        message: "Nopanheitto takaisin tuplana!",
         customElement: DiceRollBack,
         props: {
             multiplier: 2
         }
     },
     rockPaperScissorsShot: {
+        image: tileImages.kps,
         customElement: KPS,
         unskippable: true
     },
     rule: {
-        message: "Keksi peliin sääntö!"
+        image: tileImages.saanto,
+        message: "Keksi peliin sääntö! Sääntö on voimassa kunnes joku keksii uuden. Säännön rikkomisesta tulee viiden huikan sakko.",
     },
     dices35back: {
+        image: tileImages.kolmekymmentaviisitaakse,
         message: "Heitä kahta noppaa. Kun silmälukujen summa on 11 tai 12, liiku 35 taakse!",
-        customElement: Dices35Back
+        customElement: Dices35Back,
+        moveStartMessage: "Heitä kahta noppaa. Kun silmälukujen summa on 11 tai 12, liiku 35 taakse!",
+        moveStartElement: Dices35Back
     },
     sixToWin: {
+        image: tileImages.noppaMaali,
         message: "Heitä noppaa. Saadessasi 6 voitat pelin!",
         unskippable: true,
         customElement: SixToPass
@@ -132,12 +169,10 @@ const tileTypes = {
         message: "Voitit pelin!",
         unskippable: true
     }
-
-
 }
 
-export const tiles: {[key: number]: Tile<any>} = {
-    1: tileTypes.drink5,
+export const tiles: {[key: number]: Tile<any, any>} = {
+    1: tileTypes.paskaHeitto,
     2: tileTypes.drink2,
     3: tileTypes.everyoneDrinks2,
     4: tileTypes.rule,

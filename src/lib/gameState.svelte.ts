@@ -23,6 +23,15 @@ if (typeof window !== 'undefined') {
     });
 }
 
+export function clearState() {
+    gameStateStore.set({
+        players: [],
+        turn: 0,
+        positions: [],
+        inGame: false
+    });
+}
+
 export function tryLoadData(): GameState | undefined {
     if (typeof window === 'undefined') {
         return undefined;

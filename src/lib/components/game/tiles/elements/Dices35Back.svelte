@@ -15,7 +15,7 @@
     export function onActionButtonClick() {
         if (stage === "waitingForRoll") {
             stage = "rolling";
-            setActionButtonText?.(null);
+            setActionButtonText?.("Pyöritetään..");
         }
     }
 
@@ -26,8 +26,10 @@
     result={(results) => {
         if (results.reduce((partialSum, a) => partialSum + a, 0) > 10) {
             movePlayer(-35, currentPlayerIndex);
+        } else {
+            movePlayer(1, currentPlayerIndex);
         }
-        movePlayer(1, currentPlayerIndex);
+        setActionButtonText?.(null);
     }}
     count={2}
     changesBeforeSettle={30}

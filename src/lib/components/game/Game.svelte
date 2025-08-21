@@ -5,7 +5,7 @@
 	import { tiles, type Tile } from "./tiles/tiles";
 	import type { ElementProps } from "./tiles/elements/elementProps";
 	import { fade } from "svelte/transition";
-	import { gameStateStore as gameState } from "$lib/gameState.svelte";
+	import { gameStateStore as gameState, tryLoadData } from "$lib/gameState.svelte";
 	import { derived } from "svelte/store";
 
 	const colors = ["#3559e8", "#d8de23", "#12e627", "#db1229"];
@@ -31,7 +31,7 @@
 
 	let overlayButtonText: string | null = $state(null);
 
-	let currentTile: Tile<any> | null = $state(null);
+	let currentTile: Tile<any, any> | null = $state(null);
 
 	function calculateRandom(x: number, y: number, playerIndex: number): [number, number] {
     	let boardX = x * xTileSize;
@@ -82,6 +82,36 @@
 		return calculateRandom(x, y, index)
 	}
 
+	function hasPlayerWon(index: number): boolean {
+		return $gameState.positions[index] === 55;
+	}
+
+	function allPlayersWon(): boolean {
+		return $gameState.players.length > 0 && $gameState.players.every((_, i) => hasPlayerWon(i));
+	}
+
+	function nextTurn() {
+		let playerCount = $gameState.players.length;
+		if (allPlayersWon()) {
+			dieRolling = false;
+			currentTile = null;
+			return;
+		}
+		let nextPlayer = $gameState.turn % playerCount;
+		let attempts = 0;
+		while (hasPlayerWon(nextPlayer) && attempts < playerCount) {
+			$gameState.turn += 1;
+			nextPlayer = $gameState.turn % playerCount;
+			attempts++;
+		}
+		if (tiles.hasOwnProperty($gameState.positions[nextPlayer]) && 
+			tiles[$gameState.positions[nextPlayer]].moveStartElement) {
+			showTileForPlayer(nextPlayer);
+		} else {
+			dieRolling = true;
+		}
+	}
+
 	async function onDiceRolled(results: number[]) {
 		const currentPlayer = $gameState.turn % $gameState.players.length;
 		const startPos = $gameState.positions[currentPlayer];
@@ -100,7 +130,6 @@
 		$gameState.positions[currentPlayer] = endPos;
 		dieRolling = false;
 		showTileForPlayer(currentPlayer);
-
 	}
 
 	function showTileForPlayer(index: number) {
@@ -111,23 +140,21 @@
 		}
 	}
 
-	function onOverlayFinished() {
-		
-	}
-
 	let customTileElement: { onActionButtonClick?: () => void; } = $state({});
 
 	function buildDefaultOverlayProps(): ElementProps {
 		return {
 			players: $gameState.players,
-			finishedCallback: onOverlayFinished,
 			setActionButtonText: (text: string | null) => {
 				overlayButtonText = text;
 			},
-			movePlayer: (offset: number, index: number) => {
+			movePlayer: (offset: number, index: number, triggerTile?: boolean) => {
 				$gameState.positions[index] += offset;
-				showTileForPlayer(index);
+				if (triggerTile !== false) {
+					showTileForPlayer(index);
+				}
 			},
+			positions: $gameState.positions,
 			currentPlayerIndex: $gameState.turn % $gameState.players.length
 		}
 	}
@@ -138,11 +165,11 @@
 	}
 </script>
 
-<section class="w-full h-[100vh] flex flex-col items-start">
+<section
+	style="height: 100vh; height: 100svh;"
+	class="w-full flex flex-col items-start">
 	<div class="game grow-1 relative aspect-square bg-no-repeat max-w-[100vw] max-h-[100vw] m-auto bg-[url(/gorilla.png)] bg-contain">
 		{#each {length: $gameState.players.length} as _, i}
-		{console.log($gameState)}
-		{console.log($coordinates)}
 		<div 
 		style="
 			background-color: {colors[i % colors.length]};
@@ -164,8 +191,11 @@
 				/>
 			{/if}
 			{#if currentTile !== null}
-				<div in:fade={{duration: 1800}} class="backdrop bg-black/60 w-full h-full flex flex-col items-center justify-center">
-					<p class="text-white text-2xl">{currentTile.message}</p>
+				<div in:fade={{duration: 1200}} class="backdrop bg-black/60 w-full h-full flex flex-col items-center justify-center">
+					<p class="text-white text-center text-2xl p-5">{currentTile.message}</p>
+					{#if currentTile.image}
+						<img src={currentTile.image} alt={currentTile.message} class="object-contain w-[40%]" />
+					{/if}
 					{#if currentTile.customElement}
 						<currentTile.customElement bind:this={customTileElement} {...{...currentTile.props, ...buildDefaultOverlayProps()}}/>
 					{/if}
@@ -187,17 +217,20 @@
 		variant="outline"
 		disabled={dieRolling}
 		onclick={() => { 
-			if (currentTile !== null) {
+			if (allPlayersWon()) {
+				gameState.set({ players: [], positions: [], turn: 0, inGame: false });
+			}
+			else if (currentTile !== null) {
 				if (overlayButtonText) {
 					customTileElement.onActionButtonClick?.();
 				}
 				else endTurn();
 			} else {
-				dieRolling = true;
+				nextTurn();
 			}
 		}}>
 		{
-			currentTile !== null ? (overlayButtonText ? overlayButtonText : "Sulje") : "Heitä noppaa"
+			currentTile !== null ? (overlayButtonText ? overlayButtonText : "Sulje") : (allPlayersWon() ? "Takaisin aloitusnäyttöön" : "Seuraava vuoro")
 		}
 		</Button>
 </section>

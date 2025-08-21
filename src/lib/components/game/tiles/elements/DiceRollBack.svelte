@@ -20,7 +20,7 @@
     export function onActionButtonClick() {
         if (stage === "waitingForRoll") {
             stage = "rolling";
-            setActionButtonText?.(null);
+            setActionButtonText?.("Pyöritetään..");
         }
     }
 
@@ -29,6 +29,7 @@
 {#if stage === "rolling"}
 <Dice 
     result={(results) => {
+        setActionButtonText?.(null);
         movePlayer(-results[0] * multiplier, currentPlayerIndex);
     }}
     changesBeforeSettle={30}

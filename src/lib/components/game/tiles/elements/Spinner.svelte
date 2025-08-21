@@ -27,6 +27,7 @@
     import { getRandomNumber, wait } from "$lib/helpers/wait";
 	import { onMount, type Component } from "svelte";
 	import Overlay from "$lib/components/ui/Overlay.svelte";
+    import RajuOsoitin from "$lib/assets/RajuOsoitin.png";
 
     const {
 		players,
@@ -50,6 +51,7 @@
     const animationUrl = "video/rajupyora.mp4"
 
     onMount(async () => {
+        setActionButtonText?.("Odota..");
         if (stage !== "starting") {
             return;
         }
@@ -113,9 +115,9 @@
             }}
         ></div>
         <img
-          class="absolute left-1/2 translate-x-[-56.5%] z-1 w-[10%] object-contain"
+          class="absolute left-1/2 translate-x-[-56%] z-1 w-[10%] object-contain"
           style="top: {topOffset}%"
-          src="/RajuOsoitin.png"
+          src={RajuOsoitin}
           alt="Raju Osoitin"
         />
     </div>
