@@ -14,7 +14,7 @@
 		"lint": "prettier --check . && eslint .",
 		"test:e2e": "playwright test",
 		"test": "npm run test:e2e",
-		"deploy": "pnpm build && pnpx gh-pages --nojekyll -d build --no-history"
+		"deploy": "pnpm build && pnpx gh-pages --nojekyll -d build --no-history --cname blackout.beer"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",
