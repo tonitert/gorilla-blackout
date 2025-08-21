@@ -10,14 +10,17 @@
 	<meta name="description" content="Gorilla Blackout" />
 </svelte:head>
 
-{#if $gameState.inGame}
-	<Game/>
-{:else}	
-	<Setup pendingState={pendingState} onStart={(newPlayers) => {
-		gameState.update((state) => {
-			state.players = newPlayers;
-			state.inGame = true;
-			return state;
-		});
-	}}/>
-{/if}
+<div>
+	{#if $gameState.inGame}
+		<Game/>
+	{:else}	
+		<Setup pendingState={pendingState} onStart={(newPlayers) => {
+			gameState.update((state) => {
+				state.players = newPlayers;
+				state.inGame = true;
+				return state;
+			});
+		}}/>
+	{/if}
+</div>
+

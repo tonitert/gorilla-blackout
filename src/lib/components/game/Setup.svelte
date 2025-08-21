@@ -67,8 +67,13 @@
 
 </script>
 
-<div class="p-5 space-y-6 max-w-150 flex flex-col m-auto">
-    <img src={logo} alt="Blackout (Gorilla Edition) Logo" class="m-auto" />
+<div class="p-5 space-y-6 max-w-200 flex flex-col m-auto">
+    <img src={logo} alt="Blackout (Gorilla Edition) Logo"/>
+    <p class="text-lg">
+        Tervetuloa Gorilla Blackoutiin, kahden opiskelijan kehittämään äärimmäisen rajuun juomapeliin! Nopilla pelattavana lautapelinä luonnollisesti tavoitteena on päästä maaliin, mutta se on helpommin sanottu kuin tehty - ja peli on sitä rankempi, mitä enemmän pelaajia on mukana!
+        <br/><br/>
+        Pelissä juodaan paljon sekä mietoja että vahvoja, joten suosittelemme pelaajia varustautumaan varsin runsaasti. Onnea matkaan!
+    </p>
 
     {#if pendingState}
         <div class="pending-game p-3 rounded-xl shadow-grey ring-gray-600 ring shadow-2xl/30 mt-10 flex gap-2 flex-col">
