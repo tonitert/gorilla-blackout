@@ -3,14 +3,25 @@
 
     const minPlayers = 2;
     const maxPlayers = 50;
- 
+
+    const readonlyPlayerImages: [string, ...string[]] = [
+        "color",
+        // And then merge in the remaining values from `properties`
+        ...Object.values(playerImages)
+    ];
+    const imagesReadonly: Readonly<string[]> = Object.values(playerImages);
+
     export const formSchema = z.object({
         players: z.array(z.object({
-            name: z.string().min(1, "Nimi on pakollinen").max(100, "Nimi voi olla enintään 100 merkkiä pitkä")
+            name: z.string().min(1, "Nimi on pakollinen").max(100, "Nimi voi olla enintään 100 merkkiä pitkä"),
+            image: z.enum(readonlyPlayerImages)
         }))
         .min(minPlayers, `Pelaajia tulee olla vähintään ${minPlayers}.`)
         .max(maxPlayers, `Pelaajia voi olla enintään ${maxPlayers}.`)
-        .default([{ name: "" }])
+        .default([{
+            name: "",
+            image: Object.values(playerImages)[0]
+        }])
     });
 
     export type PlayerList = {
@@ -27,6 +38,9 @@
 	import { gameStateStore, type GameState } from "$lib/gameState.svelte";
 	import Button from "../ui/button/button.svelte";
     import logo from "$lib/assets/logo.webp";
+    import { playerImages } from "./playerImages";
+	import * as Collapsible from "$lib/components/ui/collapsible/index.js";
+	import Toggle from "../ui/toggle/toggle.svelte";
 
     const {
         onStart,
@@ -108,6 +122,27 @@
 							        Poista
 						        </Form.Button>
                             </div>
+                        {/snippet}
+                    </Form.Control>
+                    <FieldErrors class="text-red-500"/>
+                </ElementField>
+                <ElementField {form} name={`players[${i}].image`}>
+                    <Form.Control>
+                        {#snippet children({ props })}
+                            <Collapsible.Root class="mt-5">
+                                <Collapsible.Trigger>Valitse pelihahmo</Collapsible.Trigger>
+                                <Collapsible.Content>
+                                    <div class="flex items-end mt-2">
+                                        <div class="grow-1 mr-2">
+                                            {#each imagesReadonly as image}
+                                                <Toggle class="mt-5 h-[unset] p-3">
+                                                    <img src={image} alt={image} class="w-16 h-16 mr-2" />
+                                                </Toggle>
+                                            {/each}
+                                        </div>
+                                    </div>
+                                </Collapsible.Content>
+                            </Collapsible.Root>
                         {/snippet}
                     </Form.Control>
                     <FieldErrors class="text-red-500"/>
