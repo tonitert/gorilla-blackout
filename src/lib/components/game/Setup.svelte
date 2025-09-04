@@ -5,7 +5,7 @@
     const maxPlayers = 50;
 
     const readonlyPlayerImages: [string, ...string[]] = [
-        "color",
+        "default",
         // And then merge in the remaining values from `properties`
         ...Object.values(playerImages)
     ];
@@ -20,27 +20,31 @@
         .max(maxPlayers, `Pelaajia voi olla enintään ${maxPlayers}.`)
         .default([{
             name: "",
-            image: Object.values(playerImages)[0]
+            image: "default"
         }])
     });
 
     export type PlayerList = {
         name: string
+        image: string
     }[];
 </script>
 
 <script lang="ts">
-    import { defaults, superForm, superValidate } from "sveltekit-superforms";
+    import { defaults, superForm } from "sveltekit-superforms";
     import { zod, zodClient } from "sveltekit-superforms/adapters";
     import * as Form from "$lib/components/ui/form/index.js";
     import { Input } from "$lib/components/ui/input/index.js";
 	import { ElementField, FieldErrors, Fieldset, Legend } from "formsnap";
 	import { gameStateStore, type GameState } from "$lib/gameState.svelte";
 	import Button from "../ui/button/button.svelte";
+    import { buttonVariants } from "$lib/components/ui/button/index.js";
     import logo from "$lib/assets/logo.webp";
     import { playerImages } from "./playerImages";
 	import * as Collapsible from "$lib/components/ui/collapsible/index.js";
 	import Toggle from "../ui/toggle/toggle.svelte";
+	import { SvelteSet } from "svelte/reactivity";
+    import ChevronsUpDownIcon from "@lucide/svelte/icons/chevrons-up-down";
 
     const {
         onStart,
@@ -51,6 +55,8 @@
         players?: PlayerList,
         pendingState: GameState | undefined
     } = $props();
+
+    let selectedImages: SvelteSet<string> = $state(new SvelteSet());
 
     const zodObject = zod(formSchema)
     
@@ -68,7 +74,7 @@
     const { form: formData, enhance } = form;
 
     function addPlayer() {
-        $formData.players = [...$formData.players, { name: "" }];
+        $formData.players = [...$formData.players, { name: "", image: "default" }];
     }
 
     function removePlayerByIndex(index: number) {
@@ -130,16 +136,43 @@
                     <Form.Control>
                         {#snippet children({ props })}
                             <Collapsible.Root class="mt-5">
-                                <Collapsible.Trigger>Valitse pelihahmo</Collapsible.Trigger>
+                                <div class="flex items-center space-x-2">
+                                    <h4 class="text-sm font-semibold">Valitse pelihahmo</h4>
+                                    <Collapsible.Trigger
+                                        class={buttonVariants({ variant: "ghost", size: "sm", class: "w-9 p-0" })}
+                                    >
+                                        <ChevronsUpDownIcon />
+                                        <span class="sr-only">Toggle</span>
+                                    </Collapsible.Trigger>
+                                </div>
                                 <Collapsible.Content>
-                                    <div class="flex items-end mt-2">
-                                        <div class="grow-1 mr-2">
-                                            {#each imagesReadonly as image}
-                                                <Toggle class="mt-5 h-[unset] p-3">
-                                                    <img src={image} alt={image} class="w-16 h-16 mr-2" />
-                                                </Toggle>
-                                            {/each}
-                                        </div>
+                                    <div class="flex flex-wrap gap-2 items-center mt-2">
+                                        <Toggle
+                                            class="h-[unset] p-3 flex items-center justify-center"
+                                            pressed={$formData.players[i].image === "default"}
+                                            onclick={(e) => {
+                                                selectedImages.delete($formData.players[i].image);
+                                                $formData.players[i].image = "default";
+                                                e.preventDefault();
+                                            }}
+                                        >
+                                            <p class="text-center">Ei hahmoa</p>
+                                        </Toggle>
+                                        {#each imagesReadonly as image}
+                                            <Toggle
+                                                class="h-[unset] p-3"
+                                                disabled={selectedImages.has(image) && $formData.players[i].image !== image}
+                                                pressed={$formData.players[i].image === image}
+                                                onclick={(e) => {
+                                                    selectedImages.delete($formData.players[i].image);
+                                                    $formData.players[i].image = image;
+                                                    selectedImages.add(image);
+                                                    e.preventDefault();
+                                                }}
+                                            >
+                                                <img src={image} alt={image} class="w-16 h-16 mr-2" />
+                                            </Toggle>
+                                        {/each}
                                     </div>
                                 </Collapsible.Content>
                             </Collapsible.Root>
