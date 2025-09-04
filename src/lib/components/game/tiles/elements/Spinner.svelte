@@ -44,6 +44,7 @@
     const waitBeforeAnimation = 2000;
     let stage = $state<"starting" | "waitingForAnimation" | "animationPlaying" | "waitingForSpin" | "spinning" | "result">("starting");
     let paused = $derived(stage !== "animationPlaying")
+    let video : HTMLVideoElement | null = $state(null);
     let spinDegrees = $state(0);
     let chosen = $state(0);
     let addedElementInstance = $state<{ onActionButtonClick?: () => void } | undefined>(undefined);
@@ -96,13 +97,32 @@
 {#if (stage === "waitingForAnimation" || stage === "animationPlaying") && animation}
     <div class="bg-black w-full h-full absolute">
         <!-- svelte-ignore a11y_media_has_caption -->
-        <video playsInline controls={false} class="w-full" onended={() => { 
+        <video playsInline controls={false} bind:this={video} class="w-full" onended={() => { 
                 stage = "waitingForSpin"
                 setActionButtonText?.("Pyöräytä pyörää");
-            }} bind:paused={paused}>
+            }} onerror={() => { 
+                stage = "waitingForSpin"
+                setActionButtonText?.("Pyöräytä pyörää");
+            }}>
             <source src={animationUrl}/>
         </video>
     </div>
+{/if}
+
+{#if stage === "animationPlaying"}
+    {
+        (() => {
+            setTimeout(() => {
+                if (stage === "animationPlaying") {
+                    stage = "waitingForSpin"
+                    setActionButtonText?.("Pyöräytä pyörää");
+                }
+            }, 30000);
+            video?.play();
+        })()
+        // Sometimes the video gets stuck on mobile Safari so we add a timeout to move on after 30s
+        
+    }
 {/if}
 
 {#if stage === "waitingForSpin" || stage === "spinning" || stage === "result"}
