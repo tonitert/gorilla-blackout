@@ -40,7 +40,7 @@ const tileTypes: {[key: string]: Tile<any, any>} = {
         message: "Juo 4 huikkaa!"
     },
     paskaHeitto: {
-        image: tileImages.viisiHuikkaa,
+        image: tileImages.paskaHeitto,
         message: "Juo 5 huikkaa!"
     },
     drink5: {

@@ -172,23 +172,22 @@
 	<div class="game grow-1 relative aspect-square bg-no-repeat max-w-[100vw] max-h-[100vw] m-auto bg-[url(/gorilla.png)] bg-contain">
 		{#each {length: $gameState.players.length} as _, i}
 		<div 
-				style="
-					left: {leftBorderSize + $coordinates[i][0]}%;
-					bottom: {topBorderSize + $coordinates[i][1]}%;
-					height: {$gameState.players[i].image === "default" ? playerSize : imagePlayerSize}%;
-					aspect-ratio: 1/1;
-					" 
-				class="absolute flex items-center justify-center
-					transition-[bottom, left] ease-in-out duration-500 aspect-square">
-					{#if $gameState.players[i].image === "default"}
-						<div class="aspect-square border-2 border-solid border-black 
-							rounded-xl h-full w-full" style="background-color: {colors[i % colors.length]}">
-						</div>
-					{:else}
-						<img src={$gameState.players[i].image} alt={`Player ${i + 1}`} class="absolute aspect-square drop-shadow-2xl" />
-					{/if}
-			</div>
-		
+			style="
+				left: {leftBorderSize + $coordinates[i][0]}%;
+				bottom: {topBorderSize + $coordinates[i][1]}%;
+				height: {$gameState.players[i].image === "default" ? playerSize : imagePlayerSize}%;
+				aspect-ratio: 1/1;
+				" 
+			class="absolute flex items-center justify-center
+				transition-[bottom, left] ease-in-out duration-500 aspect-square">
+				{#if $gameState.players[i].image === "default"}
+					<div class="aspect-square border-2 border-solid border-black 
+						rounded-xl h-full w-full" style="background-color: {colors[i % colors.length]}">
+					</div>
+				{:else}
+					<img src={$gameState.players[i].image} alt={`Player ${i + 1}`} class="absolute aspect-square drop-shadow-2xl" />
+				{/if}
+		</div>
 		
 		{/each}
 		<div class="absolute w-full h-full flex flex-col items-center justify-center">
