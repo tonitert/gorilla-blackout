@@ -1,0 +1,7 @@
+{
+  "name": "gorilla-blackout",
+  "compatibility_date": "2025-09-08",
+  "assets": {
+    "directory": "./build/"
+  }
+}
