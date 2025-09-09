@@ -28,6 +28,7 @@
 	import { onMount, type Component } from "svelte";
 	import Overlay from "$lib/components/ui/Overlay.svelte";
     import RajuOsoitin from "$lib/assets/RajuOsoitin.png";
+    import animationUrl from "$lib/assets/video/rajupyora.mp4";
 
     const {
 		players,
@@ -48,8 +49,6 @@
     let spinDegrees = $state(0);
     let chosen = $state(0);
     let addedElementInstance = $state<{ onActionButtonClick?: () => void } | undefined>(undefined);
-
-    const animationUrl = "video/rajupyora.mp4"
 
     onMount(async () => {
         setActionButtonText?.("Odota..");
@@ -135,7 +134,7 @@
             }}
         ></div>
         <img
-          class="absolute left-1/2 translate-x-[-56%] z-1 w-[10%] object-contain"
+          class="absolute left-1/2 translate-x-[-50%] z-1 w-[10%] object-contain"
           style="top: {topOffset}%"
           src={RajuOsoitin}
           alt="Raju Osoitin"
@@ -144,7 +143,7 @@
 {/if}
 
 {#if stage === "result"}
-    <div class="z-10 w-full h-full">
+    <div class="absolute z-10 w-full h-full">
         <Overlay
             message={options[chosen].name} 
             AddedElement={options[chosen].element} 

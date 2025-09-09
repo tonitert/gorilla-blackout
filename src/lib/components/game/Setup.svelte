@@ -7,9 +7,9 @@
     const readonlyPlayerImages: [string, ...string[]] = [
         "default",
         // And then merge in the remaining values from `properties`
-        ...Object.values(playerImages)
+        ...Object.keys(playerImages)
     ];
-    const imagesReadonly: Readonly<string[]> = Object.values(playerImages);
+    
 
     export const formSchema = z.object({
         players: z.array(z.object({
@@ -24,9 +24,10 @@
         }])
     });
 
+    type PlayerImageName = keyof typeof playerImages | "default";
     export type PlayerList = {
         name: string
-        image: string
+        image: PlayerImageName
     }[];
 </script>
 
@@ -65,7 +66,7 @@
         SPA: true,
         onUpdate: ({ form: f }) => {
             if (f.valid) {
-                onStart(f.data.players);
+                onStart(f.data.players as PlayerList);
             }
         },
         dataType: "json"
@@ -163,15 +164,15 @@
                                         >
                                             <p class="text-center">Ei hahmoa</p>
                                         </Toggle>
-                                        {#each imagesReadonly as image}
+                                        {#each Object.entries(playerImages) as [name, image]}
                                             <Toggle
                                                 class="h-[unset] p-3 toggle"
-                                                disabled={selectedImages.has(image) && $formData.players[i].image !== image}
-                                                pressed={$formData.players[i].image === image}
+                                                disabled={selectedImages.has(name) && $formData.players[i].image !== name}
+                                                pressed={$formData.players[i].image === name}
                                                 onclick={(e) => {
                                                     selectedImages.delete($formData.players[i].image);
-                                                    $formData.players[i].image = image;
-                                                    selectedImages.add(image);
+                                                    $formData.players[i].image = name;
+                                                    selectedImages.add(name);
                                                     e.preventDefault();
                                                 }}
                                             >
