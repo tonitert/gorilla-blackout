@@ -88,7 +88,7 @@
 </script>
 
 <div class="p-5 space-y-6 max-w-200 flex flex-col m-auto">
-    <img src={logo} alt="Blackout (Gorilla Edition) Logo"/>
+    <img src={logo} alt="Gorilla Blackout juomapeli logo"/>
     <p class="text-lg">
         Tervetuloa Gorilla Blackoutiin, kahden opiskelijan kehittämään äärimmäisen rajuun juomapeliin! Nopilla pelattavana lautapelinä luonnollisesti tavoitteena on päästä maaliin, mutta se on helpommin sanottu kuin tehty - ja peli on sitä rankempi, mitä enemmän pelaajia on mukana!
         <br/><br/>
@@ -146,7 +146,12 @@
                                     </Collapsible.Trigger>
                                 </div>
                                 <Collapsible.Content>
-                                    <div class="flex flex-wrap gap-2 items-center mt-2">
+                                    <div class="flex flex-wrap gap-2 items-center space-b mt-2 justify-around w-full">
+                                        <style>
+                                            .toggle:last-child {
+                                                margin-right: auto;
+                                            }
+                                        </style>
                                         <Toggle
                                             class="h-[unset] p-3 flex items-center justify-center"
                                             pressed={$formData.players[i].image === "default"}
@@ -160,7 +165,7 @@
                                         </Toggle>
                                         {#each imagesReadonly as image}
                                             <Toggle
-                                                class="h-[unset] p-3"
+                                                class="h-[unset] p-3 toggle"
                                                 disabled={selectedImages.has(image) && $formData.players[i].image !== image}
                                                 pressed={$formData.players[i].image === image}
                                                 onclick={(e) => {
