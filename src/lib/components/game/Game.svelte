@@ -7,6 +7,8 @@
 	import { fade } from "svelte/transition";
 	import { gameStateStore as gameState, tryLoadData } from "$lib/gameState.svelte";
 	import { derived } from "svelte/store";
+	import board from "$lib/assets/gorilla.png";
+	import { playerImages } from "./playerImages";
 
 	const colors = ["#3559e8", "#d8de23", "#12e627", "#db1229"];
 	
@@ -168,8 +170,9 @@
 
 <section
 	style="height: 100vh; height: 100svh;"
-	class="w-full flex flex-col items-start">
-	<div class="game grow-1 relative aspect-square bg-no-repeat max-w-[100vw] max-h-[100vw] m-auto bg-[url(/gorilla.png)] bg-contain">
+	class="w-full flex flex-col items-start pb-2">
+	<div class="game grow-1 relative aspect-square bg-no-repeat max-w-[100vw] max-h-[100vw] m-auto bg-contain"
+		style="background-image: url({board});">
 		{#each {length: $gameState.players.length} as _, i}
 		<div 
 			style="
@@ -185,7 +188,7 @@
 						rounded-xl h-full w-full" style="background-color: {colors[i % colors.length]}">
 					</div>
 				{:else}
-					<img src={$gameState.players[i].image} alt={`Player ${i + 1}`} class="absolute aspect-square drop-shadow-2xl" />
+					<img src={playerImages[$gameState.players[i].image]} alt={`Player ${i + 1}`} class="absolute aspect-square drop-shadow-2xl" />
 				{/if}
 		</div>
 		
@@ -240,3 +243,8 @@
 		}
 		</Button>
 </section>
+<style>
+	* {
+    	touch-action: manipulation;
+	}
+</style>

@@ -2,7 +2,7 @@ import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import tailwindcss from '@tailwindcss/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
-import { enhancedImages } from '@sveltejs/enhanced-img';
+import { imagetools } from 'vite-imagetools'
 
 export default defineConfig({
 	server: {
@@ -14,7 +14,13 @@ export default defineConfig({
 	plugins: [
 		tailwindcss(),
 		sveltekit(),
-		enhancedImages(),
+		imagetools({
+			defaultDirectives: () => {
+				return new URLSearchParams({
+					format: 'webp',
+				});
+			}
+		}),
 		paraglideVitePlugin({
 			project: './project.inlang',
 			outdir: './src/lib/paraglide'

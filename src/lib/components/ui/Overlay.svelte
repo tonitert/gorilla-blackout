@@ -19,7 +19,7 @@
 </script>
 
 <div in:fade={{duration: 1800}} class="backdrop bg-black/60 w-full h-full flex flex-col items-center justify-center">
-	{#if message}
+	{#if message && message.length > 0}
         <p class="text-white text-2xl mt-5">{message}</p>
     {/if}
 	{#if AddedElement}

@@ -119,7 +119,7 @@ const tileTypes: {[key: string]: Tile<any, any>} = {
         message: "Ryhmäshotti",
         customElement: Text,
         props: {
-            text: "Kaikki ottavat shotin"
+            text: "Kaikki ottavat shotin!"
         }
     },
     leftDrinks3: {
