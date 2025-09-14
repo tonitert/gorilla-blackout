@@ -6,8 +6,8 @@
 	let pendingState = $state<GameState | undefined>(tryLoadData());
 </script>
 <svelte:head>
-	<title>Gorilla Blackout</title>
-	<meta name="description" content="Gorilla Blackout" />
+	<title>Gorilla Blackout - rankka juomapeli opiskelijoille!</title>
+	<meta name="description" content="Dokattu juomapeli opiskelijoille! Heitä noppaa päästäksesi maaliin, mutta varo Rajua Pyörää ja muita yllätyksiä!" />
 </svelte:head>
 
 <div>
