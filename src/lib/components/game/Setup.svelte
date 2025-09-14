@@ -90,7 +90,7 @@
 
 <div class="p-5 space-y-6 max-w-200 flex flex-col m-auto">
     <h1>
-        <img src={logo} alt="Gorilla Blackout"/>
+        <img src={logo} alt="Gorilla Blackout - rankka juomapeli opiskelijoille!"/>
     </h1>
     
     <p class="text-lg">
