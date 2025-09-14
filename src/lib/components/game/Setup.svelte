@@ -89,7 +89,10 @@
 </script>
 
 <div class="p-5 space-y-6 max-w-200 flex flex-col m-auto">
-    <img src={logo} alt="Gorilla Blackout juomapeli logo"/>
+    <h1>
+        <img src={logo} alt="Gorilla Blackout"/>
+    </h1>
+    
     <p class="text-lg">
         Tervetuloa Gorilla Blackoutiin, kahden opiskelijan kehittämään äärimmäisen rajuun juomapeliin! Nopilla pelattavana lautapelinä luonnollisesti tavoitteena on päästä maaliin, mutta se on helpommin sanottu kuin tehty - ja peli on sitä rankempi, mitä enemmän pelaajia on mukana!
         <br/><br/>
@@ -111,7 +114,7 @@
 		</div>
     {/if}
     
-    <h2 class="text-xl">Uusi peli</h2>
+    <h2 class="text-xl">Aloita peli</h2>
 
     <form class="space-y-6 flex flex-col" use:enhance>
         <Fieldset {form} name="players">
