@@ -1,3 +1,7 @@
+<script lang="ts" module>
+	export const lastTilePosition = 55;
+</script>
+
 <script lang="ts">
 
 	import Button from "$lib/components/ui/button/button.svelte";
@@ -5,10 +9,14 @@
 	import { tiles, type Tile } from "./tiles/tiles";
 	import type { ElementProps } from "./tiles/elements/elementProps";
 	import { fade } from "svelte/transition";
-	import { gameStateStore as gameState, tryLoadData } from "$lib/gameState.svelte";
+	import { gameStateStore as gameState, clearGameState } from "$lib/gameState.svelte";
 	import { derived } from "svelte/store";
 	import board from "$lib/assets/gorilla.png";
 	import { playerImages } from "./playerImages";
+	import * as Tooltip from "$lib/components/ui/tooltip/index.js";
+	import X from "@lucide/svelte/icons/x";
+	import PlayerEditor from "./PlayerEditor.svelte";
+	import { Player } from "$lib/player";
 
 	const colors = ["#3559e8", "#d8de23", "#12e627", "#db1229"];
 	
@@ -23,18 +31,28 @@
 	const xRandomPlacement = 6;
 	const yRandomPlacement = 6;
 
-	if($gameState.positions.length === 0) {
-		$gameState.positions = Array($gameState.players.length).fill(0);
-	}
 	const oldPositions = Array($gameState.players.length ?? 0).fill(-1);
 	const oldCoordinates: [number, number][] = Array($gameState.players.length ?? 0)
 		.fill([Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY]);
-	let coordinates = derived(gameState, ($gameState) => $gameState.positions.map((pos, index) => calculatePosition(pos, index)));
+	let coordinates = derived(gameState, ($gameState) => $gameState.players.map((player, index) => calculatePosition(player.position, index)));
 	let dieRolling = $state(false);
 
 	let overlayButtonText: string | null = $state(null);
-
 	let currentTile: Tile<any, any> | null = $state(null);
+
+	$gameState.currentTurnPlayerId = $gameState.players[0].id;
+
+	let currentPlayer = derived(gameState, ($gameState) => $gameState.players.find((p) => p.id === $gameState.currentTurnPlayerId) ?? new Player("Unknown", "default"));
+	let currentPlayerIndex = derived(gameState, ($gameState) => $gameState.players.findIndex((p) => p.id === $gameState.currentTurnPlayerId));
+
+	let nextPlayer = derived(gameState, () => {
+		const start = $currentPlayerIndex + 1;
+		let index = start;
+		while (hasPlayerWon(index % $gameState.players.length) && index - start <= $gameState.players.length) {
+			index++;
+		}
+		return $gameState.players[index % $gameState.players.length];
+	});
 
 	function calculateRandom(x: number, y: number, playerIndex: number): [number, number] {
     	let boardX = x * xTileSize;
@@ -86,7 +104,7 @@
 	}
 
 	function hasPlayerWon(index: number): boolean {
-		return $gameState.positions[index] === 55;
+		return $gameState.players[index].position >= lastTilePosition;
 	}
 
 	function allPlayersWon(): boolean {
@@ -94,32 +112,23 @@
 	}
 
 	function nextTurn() {
-		let playerCount = $gameState.players.length;
 		if (allPlayersWon()) {
 			dieRolling = false;
 			currentTile = null;
 			return;
 		}
-		let nextPlayer = $gameState.turn % playerCount;
-		let attempts = 0;
-		while (hasPlayerWon(nextPlayer) && attempts < playerCount) {
-			$gameState.turn += 1;
-			nextPlayer = $gameState.turn % playerCount;
-			attempts++;
-		}
-		if (tiles.hasOwnProperty($gameState.positions[nextPlayer]) && 
-			tiles[$gameState.positions[nextPlayer]].moveStartElement) {
-			showTileForPlayer(nextPlayer);
+		if (tiles.hasOwnProperty($nextPlayer.position) && 
+			tiles[$nextPlayer.position].moveStartElement) {
+			showTileForPlayer($nextPlayer);
 		} else {
 			dieRolling = true;
 		}
 	}
 
 	async function onDiceRolled(results: number[]) {
-		const currentPlayer = $gameState.turn % $gameState.players.length;
-		const startPos = $gameState.positions[currentPlayer];
+		const startPos = $currentPlayer.position;
 		const steps = results[0];
-		let endPos = startPos + steps;
+		let endPos = Math.min(startPos + steps, lastTilePosition);
 
 		// Check for unskippable tiles on the path
 		for (let i = 1; i <= steps; i++) {
@@ -130,16 +139,27 @@
 			}
 		}
 
-		$gameState.positions[currentPlayer] = endPos;
+		gameState.update(state => {
+			state.players = state.players.map(p => {
+				if (p.id === $currentPlayer.id) {
+					p.position = endPos;
+				}
+				return p;
+			});
+			return state;
+		});
 		dieRolling = false;
-		showTileForPlayer(currentPlayer);
+		showTileForPlayer($currentPlayer);
 	}
 
-	function showTileForPlayer(index: number) {
-		const pos = $gameState.positions[index];
+	function showTileForPlayer(player: Player) {
+		const pos = player.position;
 		if (tiles.hasOwnProperty(pos)) {
 			const tile = tiles[pos];
 			currentTile = tile;
+		} else {
+			currentTile = null;
+			endTurn();
 		}
 	}
 
@@ -152,19 +172,34 @@
 				overlayButtonText = text;
 			},
 			movePlayer: (offset: number, index: number, triggerTile?: boolean) => {
-				$gameState.positions[index] += offset;
+				$gameState.players[index].position += offset;
 				if (triggerTile !== false) {
-					showTileForPlayer(index);
+					showTileForPlayer($gameState.players[index]);
 				}
 			},
-			positions: $gameState.positions,
-			currentPlayerIndex: $gameState.turn % $gameState.players.length
+			positions: $gameState.players.map(player => player.position),
+			currentPlayerIndex: $currentPlayerIndex
 		}
 	}
 
 	function endTurn() {
 		$gameState.turn += 1;
+		$gameState.currentTurnPlayerId = $nextPlayer.id;
 		currentTile = null;
+	}
+
+	function handleNextTurnButtonClick() {
+		if (allPlayersWon()) {
+			clearGameState();
+		}
+		else if (currentTile !== null) {
+			if (overlayButtonText) {
+				customTileElement.onActionButtonClick?.();
+			}
+			else endTurn();
+		} else {
+			nextTurn();
+		}
 	}
 </script>
 
@@ -218,31 +253,59 @@
 		}
 	</style>
 	{#if $gameState.players.length > 0}
-		<p class="text-white grow-0 text-center text-2xl my-4 w-full">Pelaajan {$gameState.players[$gameState.turn % $gameState.players.length].name} vuoro!</p>
+		<p class="text-white grow-0 text-center text-2xl my-4 w-full">Pelaajan {$currentPlayer.name} vuoro!</p>
 	{/if}
-	
-	<Button 
-		class="grow-0 m-auto" 
-		variant="outline"
-		disabled={dieRolling}
-		onclick={() => { 
-			if (allPlayersWon()) {
-				gameState.set({ players: [], positions: [], turn: 0, inGame: false });
-			}
-			else if (currentTile !== null) {
-				if (overlayButtonText) {
-					customTileElement.onActionButtonClick?.();
+
+	<div class="grow-0 flex items-center justify-center m-auto gap-12">
+		{#snippet nextTurnButton()}
+			<Button 
+				size="lg"
+				class="grow-0 m-auto " 
+				variant="outline"
+				disabled={dieRolling}
+				onclick={handleNextTurnButtonClick}>
+				{
+					currentTile !== null ? (overlayButtonText ? overlayButtonText : "Sulje") : (allPlayersWon() ? "Takaisin aloitusnäyttöön" : "Seuraava vuoro")
 				}
-				else endTurn();
-			} else {
-				nextTurn();
-			}
-		}}>
-		{
-			currentTile !== null ? (overlayButtonText ? overlayButtonText : "Sulje") : (allPlayersWon() ? "Takaisin aloitusnäyttöön" : "Seuraava vuoro")
-		}
-		</Button>
+			</Button>
+		{/snippet}
+		{#if $gameState.spacebarTooltipShown}
+			{@render nextTurnButton()}
+		{:else}
+			<Tooltip.Provider>
+			  <Tooltip.Root>
+			    <Tooltip.Trigger>
+					{@render nextTurnButton()}
+				</Tooltip.Trigger>
+			    <Tooltip.Content class="flex gap-2 text-center align-center">
+					<p class="text-lg">Vinkki: Voit myös painaa välilyöntiä siirtyäksesi seuraavaan vuoroon!</p>
+					<button 
+						onclick={() => {
+							gameState.update(state => {
+								state.spacebarTooltipShown = true;
+								return state;
+							});
+						}}
+						disabled={$gameState.spacebarTooltipShown}>
+						<X class="w-6 h-6 cursor-pointer"/>
+					</button>
+			    </Tooltip.Content>
+			  </Tooltip.Root>
+			</Tooltip.Provider>
+		{/if}
+		<PlayerEditor 
+			players={$gameState.players}
+			onSubmit={(players) => {
+				$gameState.players = players;
+			}}/>
+	</div>
 </section>
+
+<svelte:window on:keydown={(e) => {
+	if (e.key === " " && !dieRolling) {
+		handleNextTurnButtonClick();
+	}
+}}/>
 <style>
 	* {
     	touch-action: manipulation;

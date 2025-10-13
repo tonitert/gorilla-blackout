@@ -167,6 +167,10 @@ const tileTypes: {[key: string]: Tile<any, any>} = {
     },
     win: {
         message: "Voitit pelin!",
+        customElement: Text,
+        props: {
+            text: "Muut pelaajat voivat vielä halutessaan jatkaa pelaamista."
+        },
         unskippable: true
     }
 }
