@@ -1,44 +1,72 @@
-import { writable, type Writable } from "svelte/store";
-import type { PlayerList } from "./components/game/Setup.svelte";
+import { writable, type Writable, get } from "svelte/store";
+import { type PlayerList } from "./components/game/PlayerSelector.svelte";
+import { stateVersion } from "./gameStateVersion";
+import { setItem, getItem } from "./helpers/indexedDB";
 
 export interface GameState {
     players: PlayerList;
     turn: number;
-    positions: number[];
+    currentTurnPlayerId: string | null;
     inGame: boolean;
+    spacebarTooltipShown: boolean;
+    version: number;
+    versionAvailable: string | null;
 }  
+
+const constantAttributes = {
+    version: stateVersion,
+    versionAvailable: null
+}
 
 export const gameStateStore: Writable<GameState> = writable({
     players: [],
     turn: 0,
-    positions: [],
-    inGame: false
+    currentTurnPlayerId: null,
+    inGame: false,
+    spacebarTooltipShown: false,
+    ...constantAttributes
 });
-
+let firstLoad = true;
 if (typeof window !== 'undefined') {
     gameStateStore.subscribe((gameState) => {
-        if (gameState.inGame) {
-            window.localStorage?.setItem("gameState", JSON.stringify(gameState));
+        if(firstLoad) {
+            firstLoad = false;
+            return;
         }
+        setItem("gameState", { 
+            ...$state.snapshot(gameState),
+            ...constantAttributes
+        }).catch(error => {
+            console.error("Failed to save game state to IndexedDB:", error);
+        });
     });
 }
 
-export function clearState() {
+export function clearGameState() {
     gameStateStore.set({
+        ...get(gameStateStore),
+        ...constantAttributes,
         players: [],
         turn: 0,
-        positions: [],
+        currentTurnPlayerId: null,
         inGame: false
     });
 }
 
-export function tryLoadData(): GameState | undefined {
+export async function tryLoadData(): Promise<GameState | undefined> {
     if (typeof window === 'undefined') {
         return undefined;
     }
-    const data = window.localStorage?.getItem("gameState");
-    if (data) {
-        return JSON.parse(data);
+    try {
+        const data = await getItem<GameState>("gameState");
+        gameStateStore.set({
+            ...get(gameStateStore),
+            spacebarTooltipShown: data?.spacebarTooltipShown || false
+        });
+        
+        return data;
+    } catch (error) {
+        console.error("Failed to load game state from IndexedDB:", error);
+        return undefined;
     }
-    return undefined;
 }
