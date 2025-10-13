@@ -22,7 +22,8 @@
     </h1>
     
     <p class="text-lg">
-        Tervetuloa Gorilla Blackoutiin, kahden opiskelijan kehittämään äärimmäisen rajuun juomapeliin! Nopilla pelattavana lautapelinä luonnollisesti tavoitteena on päästä maaliin, mutta se on helpommin sanottu kuin tehty - ja peli on sitä rankempi, mitä enemmän pelaajia on mukana!
+        Tervetuloa Gorilla Blackoutiin, kahden opiskelijan kehittämään äärimmäisen rajuun juomapeliin! Nopilla pelattavana lautapelinä luonnollisesti tavoitteena on päästä maaliin suorittaen tehtäviä laudalla, 
+        mutta se on helpommin sanottu kuin tehty - ja peli on sitä rankempi, mitä enemmän pelaajia on mukana! 
         <br/><br/>
         Pelissä juodaan paljon sekä mietoja että vahvoja, joten suosittelemme pelaajia varustautumaan varsin runsaasti. Onnea matkaan!
     </p>
@@ -51,3 +52,7 @@
     </PlayerSelector>
 
 </div>
+<footer class="text-center p-5 text-sm text-gray-500">
+  <p>Gorilla Blackout on täysin ilmainen juomapeli, ja se on aina pelattavissa suomeksi netissä osoitteessa blackout.beer.</p>
+  <p>Ota yhteyttä kehittäjiin: <a class="underline" href="mailto:contact@blackout.beer">contact@blackout.beer</a></p>
+</footer>
