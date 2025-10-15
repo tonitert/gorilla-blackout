@@ -32,7 +32,7 @@
 			}}
             onPlayerAdd={(player) => {
                 player.position = Math.min(
-					players.map(p => p.position).reduce((a, b) => a + b, 0) / (players.length), 
+					Math.floor(players.map(p => p.position).reduce((a, b) => a + b, 0) / (players.length)), 
 					// Joining player cannot instantly win
 					lastTilePosition - 1);
                 return player;
