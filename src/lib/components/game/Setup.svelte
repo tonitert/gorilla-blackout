@@ -53,6 +53,6 @@
 
 </div>
 <footer class="text-center p-5 text-sm text-gray-500">
-  <p>Gorilla Blackout on täysin ilmainen juomapeli, ja se on aina pelattavissa suomeksi netissä osoitteessa blackout.beer.</p>
+  <p>Gorilla Blackout on täysin ilmainen opiskelijoille suunnattu juomapeli, ja se on aina pelattavissa suomeksi netissä osoitteessa blackout.beer.</p>
   <p>Ota yhteyttä kehittäjiin: <a class="underline" href="mailto:contact@blackout.beer">contact@blackout.beer</a></p>
 </footer>
