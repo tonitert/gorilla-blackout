@@ -17,8 +17,10 @@
 	import X from "@lucide/svelte/icons/x";
 	import PlayerEditor from "./PlayerEditor.svelte";
 	import { Player } from "$lib/player";
+	import { IsUsingKeyboard } from "bits-ui";
 
 	const colors = ["#3559e8", "#d8de23", "#12e627", "#db1229"];
+	const shouldShowTooltip = $derived(IsUsingKeyboard.current);
 	
 	const leftBorderSize = 2;
 	const topBorderSize = 2;
@@ -269,7 +271,7 @@
 				}
 			</Button>
 		{/snippet}
-		{#if $gameState.spacebarTooltipShown}
+		{#if $gameState.spacebarTooltipShown || !shouldShowTooltip}
 			{@render nextTurnButton()}
 		{:else}
 			<Tooltip.Provider>
