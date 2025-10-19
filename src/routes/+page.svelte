@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from "svelte";
 	import Setup from "$lib/components/game/Setup.svelte";
 	import Game from "../lib/components/game/Game.svelte";
 	import { gameStateStore as gameState, type GameState, tryLoadData } from "$lib/gameState.svelte";
@@ -11,8 +10,8 @@
 
 </script>
 <svelte:head>
-	<title>Gorilla Blackout - rankka opiskelija juomapeli!</title>
-	<meta name="description" content="Erittäin dokattu juomapeli opiskelijoille! Heitä noppaa päästäksesi maaliin, mutta varo Rajua Pyörää ja muita yllätyksiä!" />
+	<title>Gorilla Blackout - rankka opiskelija-juomapeli!</title>
+	<meta name="description" content="Raju juomapeli opiskelijoille! Heitä noppaa päästäksesi maaliin, mutta varo Rajua Pyörää ja muita yllätyksiä! Tavoitteenasi on päästä maaliin, mutta matkalla saatat kohdata haasteita, tehtäviä ja päästä juomaan shotteja." />
 </svelte:head>
 
 <div>
