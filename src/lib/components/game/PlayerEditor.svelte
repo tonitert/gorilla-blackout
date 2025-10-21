@@ -26,6 +26,7 @@
 	<Dialog.Content class="sm:max-w-[425px] max-h-[calc(100vh-24px)] overflow-y-auto">
 		<PlayerSelector
 			submitText="Tallenna"
+			compact={true}
 			onSubmit={(players) => {
 				onSubmit(players);
 				open = false;

@@ -52,13 +52,15 @@
         players = [],
         onPlayerRemove = () => {},
         onPlayerAdd,
-        submitText = "Aloita peli"
+        submitText = "Aloita peli",
+        compact = false
     }: {
         onSubmit: (players: PlayerList) => void,
         players?: PlayerList,
         onPlayerRemove?: (index: number) => void,
         onPlayerAdd?: (player: Player) => Player,
-        submitText?: string
+        submitText?: string,
+        compact?: boolean
     } = $props();
 
 
@@ -124,24 +126,19 @@
                 <Form.Control>
                     {#snippet children({ props })}
                         <Collapsible.Root class="mt-5">
-                            <div class="flex items-center space-x-2">
-                                <h4 class="text-sm font-semibold">Valitse pelihahmo</h4>
-                                <Collapsible.Trigger
-                                    class={buttonVariants({ variant: "ghost", size: "sm", class: "w-9 p-0" })}
-                                >
-                                    <ChevronsUpDownIcon />
+                            <Collapsible.Trigger
+                                class={buttonVariants({ variant: "ghost", size: "sm", class: "w-full justify-start p-2" })}
+                            >
+                                <div class="flex items-center space-x-2 w-full">
+                                    <h4 class="text-sm font-semibold">Valitse pelihahmo</h4>
+                                    <ChevronsUpDownIcon class="ml-auto" />
                                     <span class="sr-only">Toggle</span>
-                                </Collapsible.Trigger>
-                            </div>
+                                </div>
+                            </Collapsible.Trigger>
                             <Collapsible.Content>
-                                <div class="flex flex-wrap gap-2 items-center space-b mt-2 justify-around w-full">
-                                    <style>
-                                        .toggle:last-child {
-                                            margin-right: auto;
-                                        }
-                                    </style>
+                                <div class="grid gap-2 mt-2 w-full {compact ? 'grid-cols-3' : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6'}">
                                     <Toggle
-                                        class="h-[unset] p-3 flex items-center justify-center"
+                                        class="h-[unset] p-3 flex flex-col items-center justify-center w-full"
                                         pressed={$formData.players[i].image === "default"}
                                         onclick={(e) => {
                                             selectedImages.delete($formData.players[i].image);
@@ -149,11 +146,11 @@
                                             e.preventDefault();
                                         }}
                                     >
-                                        <p class="text-center">Ei hahmoa</p>
+                                        <p class="text-center text-xs">Ei hahmoa</p>
                                     </Toggle>
                                     {#each Object.entries(playerImages) as [name, image]}
                                         <Toggle
-                                            class="h-[unset] p-3 toggle"
+                                            class="h-[unset] p-3 flex flex-col items-center justify-center w-full"
                                             disabled={selectedImages.has(name) && $formData.players[i].image !== name}
                                             pressed={$formData.players[i].image === name}
                                             onclick={(e) => {
@@ -163,7 +160,8 @@
                                                 e.preventDefault();
                                             }}
                                         >
-                                            <img src={image} alt={image} class="w-16 h-16 mr-2" />
+                                            <img src={image} alt={image} class="w-16 h-16 object-contain" />
+                                            <p class="text-center text-xs mt-1 break-words">{name}</p>
                                         </Toggle>
                                     {/each}
                                 </div>
