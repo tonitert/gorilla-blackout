@@ -5,7 +5,7 @@ import Kalja from "$lib/assets/players/PelaajaKalja.png";
 import Lonkero from "$lib/assets/players/PelaajaLonkero.png";
 import Gambina from "$lib/assets/players/PelaajaGambina.png";
 import Punkku from "$lib/assets/players/PelaajaPunkku.png";
-import Viina from "$lib/assets/players/PelaajaViina.png";
+import Kasari from "$lib/assets/players/PelaajaViina.png";
 import Shot from "$lib/assets/players/PelaajaShot.png";
 import Desi from "$lib/assets/players/PelaajaDesi.png";
 
@@ -15,7 +15,7 @@ import Oshee from "$lib/assets/players/PelaajaOshee.png";
 
 // Others
 import Garga from "$lib/assets/players/PelaajaGarga.png";
-import Teekkari from "$lib/assets/players/PelaajaTeekkari.png";
+import Teekkarilakki from "$lib/assets/players/PelaajaTeekkari.png";
 import Liekkipipo from "$lib/assets/players/PelaajaLiekkipipo.png";
 import Kurkkumopo from "$lib/assets/players/PelaajaKurkkumopo.png";
 import Kissa from "$lib/assets/players/PelaajaKissa.png";
@@ -27,7 +27,7 @@ export const playerImages = {
 	Lonkero,
 	Gambina,
 	Punkku,
-	Viina,
+	Kasari,
 	Shot,
 	Desi,
 	// Non-alcoholic drinks
@@ -35,7 +35,7 @@ export const playerImages = {
 	Oshee,
 	// Others
 	Garga,
-	Teekkari,
+	Teekkarilakki,
 	Liekkipipo,
 	Kurkkumopo,
 	Kissa,
