@@ -6,7 +6,7 @@ import Lonkero from "$lib/assets/players/PelaajaLonkero.png";
 import Gambina from "$lib/assets/players/PelaajaGambina.png";
 import Punkku from "$lib/assets/players/PelaajaPunkku.png";
 import Kasari from "$lib/assets/players/PelaajaViina.png";
-import Shot from "$lib/assets/players/PelaajaShot.png";
+import Shotti from "$lib/assets/players/PelaajaShot.png";
 import Desi from "$lib/assets/players/PelaajaDesi.png";
 
 // Non-alcoholic drinks
@@ -20,6 +20,7 @@ import Liekkipipo from "$lib/assets/players/PelaajaLiekkipipo.png";
 import Kurkkumopo from "$lib/assets/players/PelaajaKurkkumopo.png";
 import Kissa from "$lib/assets/players/PelaajaKissa.png";
 import Nuuska from "$lib/assets/players/PelaajaNuuska.png";
+import Alkoholisti from "$lib/assets/players/PelaajaAlkoholisti.png";
 
 export const playerImages = {
 	// Alcoholic drinks
@@ -28,7 +29,7 @@ export const playerImages = {
 	Gambina,
 	Punkku,
 	Kasari,
-	Shot,
+	Shotti,
 	Desi,
 	// Non-alcoholic drinks
 	Redbull,
@@ -39,5 +40,6 @@ export const playerImages = {
 	Liekkipipo,
 	Kurkkumopo,
 	Kissa,
-	Nuuska
+	Nuuska,
+	Alkoholisti
 };
