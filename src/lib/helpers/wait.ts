@@ -1,11 +1,11 @@
 export function wait(ms: number): Promise<void> {
-    return new Promise((resolve) => {
-        setTimeout(resolve, ms);
-    })
+	return new Promise((resolve) => {
+		setTimeout(resolve, ms);
+	});
 }
 
 /**
- * Returns a random number between the specified minimum (inclusive) 
+ * Returns a random number between the specified minimum (inclusive)
  * and maximum (exclusive) values.
  *
  * @param min - The minimum number (inclusive).
@@ -19,14 +19,14 @@ export function wait(ms: number): Promise<void> {
  * ```
  */
 export function getRandomNumber(min: number, max: number): number {
-  if (min >= max) {
-    throw new Error("Minimum value must be less than maximum value.");
-  }
-  return Math.random() * (max - min) + min;
+	if (min >= max) {
+		throw new Error('Minimum value must be less than maximum value.');
+	}
+	return Math.random() * (max - min) + min;
 }
 
 /**
- * Returns a random integer between the specified minimum (inclusive) 
+ * Returns a random integer between the specified minimum (inclusive)
  * and maximum (exclusive) values.
  *
  * @param min - The minimum integer (inclusive).
@@ -40,19 +40,19 @@ export function getRandomNumber(min: number, max: number): number {
  * ```
  */
 export function getRandomInt(min: number, max: number): number {
-  if (!Number.isInteger(min) || !Number.isInteger(max)) {
-    throw new Error("Both min and max must be integers.");
-  }
-  if (min >= max) {
-    throw new Error("Minimum value must be less than maximum value.");
-  }
-  return Math.floor(Math.random() * (max - min)) + min;
+	if (!Number.isInteger(min) || !Number.isInteger(max)) {
+		throw new Error('Both min and max must be integers.');
+	}
+	if (min >= max) {
+		throw new Error('Minimum value must be less than maximum value.');
+	}
+	return Math.floor(Math.random() * (max - min)) + min;
 }
 
 export function getRandomIntExcluding(min: number, max: number, exclude: number): number {
-  let result: number;
-  do {
-    result = getRandomInt(min, max);
-  } while (result === exclude);
-  return result;
+	let result: number;
+	do {
+		result = getRandomInt(min, max);
+	} while (result === exclude);
+	return result;
 }
