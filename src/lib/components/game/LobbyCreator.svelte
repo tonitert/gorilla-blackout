@@ -43,9 +43,7 @@
 	function handleCreateLobby(players: PlayerList) {
 		if (players.length === 0) return;
 
-		// Store the host player
-		hostPlayer = players;
-
+		// Only use the first player as the host
 		const player = {
 			id: '',
 			name: players[0].name,
