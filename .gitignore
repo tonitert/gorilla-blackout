@@ -28,3 +28,4 @@ src/lib/paraglide
 
 .vscode
 project.inlang/cache
+package-lock.json
