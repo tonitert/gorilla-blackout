@@ -85,7 +85,7 @@ const tileTypes: { [key: string]: Tile<any, any> } = {
 	},
 	shutup: {
 		image: tileImages.turpaHiljaa,
-		message: 'Ole hiljaa 5 minuuttia! Juo 10 huikkaa!'
+		message: 'Jos puhut 5 minuutin aikana, juo 10 huikkaa.'
 	},
 	safe: {
 		image: tileImages.safe,
