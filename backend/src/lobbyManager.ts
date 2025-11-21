@@ -84,11 +84,11 @@ export class LobbyManager {
 		return true;
 	}
 
-	updateGameState(lobbyId: string, gameState: GameState): boolean {
+	updateGameState(lobbyId: string, gameState: unknown): boolean {
 		const lobby = this.lobbies.get(lobbyId);
 		if (!lobby) return false;
 
-		lobby.gameState = gameState;
+		lobby.gameState = gameState as GameState;
 		return true;
 	}
 

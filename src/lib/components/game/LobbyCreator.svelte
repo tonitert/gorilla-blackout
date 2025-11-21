@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import Button from '../ui/button/button.svelte';
-	import { WebSocketClient } from '$lib/multiplayer/websocketClient';
+	import { WebSocketClient, type MultiplayerState } from '$lib/multiplayer/websocketClient';
 	import PlayerSelector from './PlayerSelector.svelte';
 	import type { PlayerList } from './PlayerSelector.svelte';
+	import type { Player } from '$lib/multiplayer/types';
 
 	let {
 		wsClient,
@@ -15,8 +16,7 @@
 		onGameStart: (players: PlayerList, lobbyCode: string) => void;
 	} = $props();
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let multiplayerState = $state<any>(null);
+	let multiplayerState = $state<MultiplayerState | null>(null);
 	let isConnecting = $state(true);
 	let connectionError = $state<string | null>(null);
 	let hostPlayer = $state<PlayerList>([]);
@@ -58,8 +58,7 @@
 		if (!multiplayerState?.lobby || hostPlayer.length === 0) return;
 
 		// Use all players from the lobby
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const lobbyPlayers = multiplayerState.lobby.players.map((p: any) => ({
+		const lobbyPlayers = multiplayerState.lobby.players.map((p: Player) => ({
 			id: p.id,
 			name: p.name,
 			image: p.image,

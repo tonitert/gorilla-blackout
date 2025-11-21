@@ -2,9 +2,10 @@
 	import { onMount, onDestroy } from 'svelte';
 	import Button from '../ui/button/button.svelte';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { WebSocketClient } from '$lib/multiplayer/websocketClient';
+	import { WebSocketClient, type MultiplayerState } from '$lib/multiplayer/websocketClient';
 	import PlayerSelector from './PlayerSelector.svelte';
 	import type { PlayerList } from './PlayerSelector.svelte';
+	import type { Player } from '$lib/multiplayer/types';
 
 	let {
 		wsClient,
@@ -20,8 +21,7 @@
 	let playerInfo = $state<PlayerList>([]);
 	let isConnecting = $state(true);
 	let connectionError = $state<string | null>(null);
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	let multiplayerState = $state<any>(null);
+	let multiplayerState = $state<MultiplayerState | null>(null);
 	let hasJoined = $state(false);
 
 	const unsubscribe = wsClient.state.subscribe((state) => {
@@ -31,8 +31,7 @@
 
 		// When game starts, notify parent
 		if (state.lobby?.gameState && hasJoined) {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			const lobbyPlayers = state.lobby.players.map((p: any) => ({
+			const lobbyPlayers = state.lobby.players.map((p: Player) => ({
 				id: p.id,
 				name: p.name,
 				image: p.image,
