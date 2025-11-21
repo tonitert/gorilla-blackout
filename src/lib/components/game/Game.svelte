@@ -218,9 +218,13 @@
 </script>
 
 <section style="height: 100vh; height: 100svh;" class="flex w-full flex-col items-start pb-2">
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div
-		class="game relative m-auto aspect-square max-h-[100vw] max-w-[100vw] grow-1 bg-contain bg-no-repeat"
+		class="game relative m-auto aspect-square max-h-[100vw] max-w-[100vw] grow-1 bg-contain bg-no-repeat cursor-pointer"
 		style="background-image: url({board});"
+		onclick={handleNextTurnButtonClick}
+		role="button"
+		tabindex="-1"
 	>
 		{#each { length: $gameState.players.length } as _, i}
 			<div
