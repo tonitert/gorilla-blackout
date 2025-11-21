@@ -15,7 +15,7 @@ async function setupGame(page, players: string[]) {
 	
 	// Reload to ensure clean state
 	await page.reload();
-	await page.waitForTimeout(1000);
+	await page.waitForLoadState('networkidle');
 	
 	// Wait for form to be ready
 	await expect(page.getByRole('heading', { name: 'Aloita peli' })).toBeVisible();
@@ -293,9 +293,9 @@ test.describe('End-to-End Game Flow', () => {
 			}
 			
 			// Handle action buttons
-			const heita = page.getByRole('button', { name: /Heitä/i });
-			if (await heita.isVisible({ timeout: 1000 })) {
-				await heita.click();
+			const heitaButton = page.getByRole('button', { name: 'Heitä noppaa' });
+			if (await heitaButton.isVisible({ timeout: 1000 })) {
+				await heitaButton.click();
 				await page.waitForTimeout(3000);
 				
 				const sulje2 = page.getByRole('button', { name: 'Sulje' });
