@@ -20,6 +20,7 @@
 	let playerInfo = $state<PlayerList>([]);
 	let isConnecting = $state(true);
 	let connectionError = $state<string | null>(null);
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let multiplayerState = $state<any>(null);
 	let hasJoined = $state(false);
 
@@ -30,6 +31,7 @@
 
 		// When game starts, notify parent
 		if (state.lobby?.gameState && hasJoined) {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const lobbyPlayers = state.lobby.players.map((p: any) => ({
 				id: p.id,
 				name: p.name,
@@ -87,9 +89,7 @@
 		</div>
 	{:else if !multiplayerState?.lobby}
 		<div class="rounded-xl border border-gray-600 p-6">
-			<p class="mb-4 text-gray-400">
-				Syötä isännän antama pelihuoneen koodi liittyäksesi peliin.
-			</p>
+			<p class="mb-4 text-gray-400">Syötä isännän antama pelihuoneen koodi liittyäksesi peliin.</p>
 
 			<div class="mb-4">
 				<label for="lobby-code-input" class="mb-2 block text-sm font-medium"
@@ -126,7 +126,7 @@
 			<div class="rounded-lg border border-gray-600 p-4">
 				<h4 class="mb-2 font-semibold">Pelaajat ({multiplayerState.lobby.players.length})</h4>
 				<ul class="space-y-1">
-					{#each multiplayerState.lobby.players as player}
+					{#each multiplayerState.lobby.players as player (player.id)}
 						<li class="flex items-center justify-between rounded bg-black/20 px-3 py-2">
 							<span>{player.name}</span>
 							{#if player.isHost}

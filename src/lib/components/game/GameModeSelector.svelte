@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { GameMode } from '$lib/multiplayer/types';
-	import Button from '../ui/button/button.svelte';
 
 	let {
 		onSelect
@@ -11,7 +10,7 @@
 
 <div class="space-y-6">
 	<h2 class="text-xl">Valitse pelitila</h2>
-	
+
 	<div class="grid gap-4 sm:grid-cols-2">
 		<button
 			class="flex flex-col items-center justify-center space-y-3 rounded-xl border-2 border-gray-600 p-6 transition-all hover:border-blue-500 hover:bg-blue-500/10"

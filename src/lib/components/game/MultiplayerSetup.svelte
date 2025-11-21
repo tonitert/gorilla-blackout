@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { GameMode } from '$lib/multiplayer/types';
 	import { WebSocketClient } from '$lib/multiplayer/websocketClient';
 	import Button from '../ui/button/button.svelte';
 	import LobbyCreator from './LobbyCreator.svelte';
@@ -46,8 +45,8 @@
 			</div>
 
 			<p class="text-gray-400">
-				Monilaitepelissä jokainen pelaaja voi käyttää omaa laitettaan. Yksi pelaaja luo
-				pelihuoneen ja jakaa koodin muille pelaajille.
+				Monilaitepelissä jokainen pelaaja voi käyttää omaa laitettaan. Yksi pelaaja luo pelihuoneen
+				ja jakaa koodin muille pelaajille.
 			</p>
 
 			<div class="grid gap-4 sm:grid-cols-2">
@@ -57,9 +56,7 @@
 				>
 					<div class="text-5xl">➕</div>
 					<h3 class="text-lg font-semibold">Luo pelihuone</h3>
-					<p class="text-center text-sm text-gray-400">
-						Luo uusi pelihuone ja jaa koodi muille
-					</p>
+					<p class="text-center text-sm text-gray-400">Luo uusi pelihuone ja jaa koodi muille</p>
 				</button>
 
 				<button

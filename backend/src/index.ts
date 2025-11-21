@@ -17,7 +17,7 @@ app.use(express.json());
 
 // Initialize managers
 const lobbyManager = new LobbyManager();
-const websocketManager = new WebSocketManager(wss, lobbyManager);
+new WebSocketManager(wss, lobbyManager);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -28,11 +28,11 @@ app.get('/health', (req, res) => {
 app.get('/api/lobby/:code', (req, res) => {
 	const { code } = req.params;
 	const lobby = lobbyManager.getLobbyByCode(code);
-	
+
 	if (!lobby) {
 		return res.status(404).json({ error: 'Lobby not found' });
 	}
-	
+
 	res.json({
 		code: lobby.code,
 		players: lobby.players,

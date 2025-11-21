@@ -31,18 +31,18 @@ export enum MessageType {
 	LOBBY_JOINED = 'LOBBY_JOINED',
 	PLAYER_JOINED = 'PLAYER_JOINED',
 	PLAYER_LEFT = 'PLAYER_LEFT',
-	
+
 	// Game messages
 	START_GAME = 'START_GAME',
 	GAME_STARTED = 'GAME_STARTED',
 	UPDATE_GAME_STATE = 'UPDATE_GAME_STATE',
 	GAME_STATE_UPDATED = 'GAME_STATE_UPDATED',
-	
+
 	// Error messages
 	ERROR = 'ERROR'
 }
 
 export interface WSMessage {
 	type: MessageType;
-	payload?: any;
+	payload?: unknown;
 }

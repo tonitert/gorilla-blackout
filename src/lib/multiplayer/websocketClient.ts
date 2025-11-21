@@ -232,14 +232,14 @@ export class WebSocketClient {
 		});
 	}
 
-	startGame(gameState: any): void {
+	startGame(gameState: unknown): void {
 		this.sendMessage({
 			type: MessageType.START_GAME,
 			payload: { gameState }
 		});
 	}
 
-	updateGameState(gameState: any): void {
+	updateGameState(gameState: unknown): void {
 		this.sendMessage({
 			type: MessageType.UPDATE_GAME_STATE,
 			payload: { gameState }

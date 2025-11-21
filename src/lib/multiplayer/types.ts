@@ -43,7 +43,7 @@ export enum MessageType {
 
 export interface WSMessage {
 	type: MessageType;
-	payload?: any;
+	payload?: unknown;
 }
 
 export enum GameMode {

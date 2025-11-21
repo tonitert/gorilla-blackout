@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { clearGameState, gameStateStore, type GameState } from '$lib/gameState.svelte';
+	import { gameStateStore, type GameState } from '$lib/gameState.svelte';
 	import Button from '../ui/button/button.svelte';
 	import logo from '$lib/assets/logo.webp';
 	import PlayerSelector from './PlayerSelector.svelte';
@@ -61,7 +61,7 @@
 			<h2 class="text-xl">Aikaisempi peli löytyi. Haluatko jatkaa?</h2>
 			<p>Pelaajat:</p>
 			<ul>
-				{#each pendingState.players as player}
+				{#each pendingState.players as player (player.id)}
 					<li>{player.name}</li>
 				{/each}
 			</ul>
@@ -92,10 +92,7 @@
 	{/if}
 
 	{#if currentView === 'multi-device'}
-		<MultiplayerSetup
-			onBack={() => (currentView = 'intro')}
-			onGameStart={handleMultiplayerStart}
-		/>
+		<MultiplayerSetup onBack={() => (currentView = 'intro')} onGameStart={handleMultiplayerStart} />
 	{/if}
 </div>
 <footer class="p-5 text-center text-sm text-gray-500">

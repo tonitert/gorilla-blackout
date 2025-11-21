@@ -2,7 +2,6 @@
 	import { onMount, onDestroy } from 'svelte';
 	import Button from '../ui/button/button.svelte';
 	import { WebSocketClient } from '$lib/multiplayer/websocketClient';
-	import { GameMode } from '$lib/multiplayer/types';
 	import PlayerSelector from './PlayerSelector.svelte';
 	import type { PlayerList } from './PlayerSelector.svelte';
 
@@ -16,10 +15,10 @@
 		onGameStart: (players: PlayerList, lobbyCode: string) => void;
 	} = $props();
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let multiplayerState = $state<any>(null);
 	let isConnecting = $state(true);
 	let connectionError = $state<string | null>(null);
-	let hasCreatedLobby = $state(false);
 	let hostPlayer = $state<PlayerList>([]);
 
 	const unsubscribe = wsClient.state.subscribe((state) => {
@@ -55,14 +54,14 @@
 		};
 
 		wsClient.createLobby(player);
-		hasCreatedLobby = true;
 	}
 
 	function handleStartGame() {
 		if (!multiplayerState?.lobby || hostPlayer.length === 0) return;
 
 		// Use all players from the lobby
-		const lobbyPlayers = multiplayerState.lobby.players.map((p: any, index: number) => ({
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const lobbyPlayers = multiplayerState.lobby.players.map((p: any) => ({
 			id: p.id,
 			name: p.name,
 			image: p.image,
@@ -129,7 +128,7 @@
 			<div class="rounded-lg border border-gray-600 p-4">
 				<h4 class="mb-2 font-semibold">Pelaajat ({multiplayerState.lobby.players.length})</h4>
 				<ul class="space-y-1">
-					{#each multiplayerState.lobby.players as player}
+					{#each multiplayerState.lobby.players as player (player.id)}
 						<li class="flex items-center justify-between rounded bg-black/20 px-3 py-2">
 							<span>{player.name}</span>
 							{#if player.isHost}
