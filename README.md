@@ -115,12 +115,19 @@ docker-compose up --build
 
 The application will be available at `http://localhost`.
 
-### Manual Deployment
+### Cloudflare Pages
 
-Deploy to GitHub Pages:
+The application is deployed to Cloudflare Pages with the custom domain `blackout.beer`.
+
+To deploy manually using Wrangler:
+
+```bash
+pnpm build
+pnpx wrangler pages deploy
+```
+
+Alternatively, you can use the legacy deploy script (which deploys to GitHub Pages):
 
 ```bash
 pnpm run deploy
 ```
-
-This will build the application and deploy it to GitHub Pages with the custom domain `blackout.beer`.
