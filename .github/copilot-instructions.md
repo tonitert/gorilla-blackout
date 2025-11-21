@@ -9,7 +9,6 @@ Gorilla Blackout is a web application built with SvelteKit 5, TypeScript, and Ta
 - **Framework**: SvelteKit 5 with Svelte 5
 - **Language**: TypeScript with strict mode enabled
 - **Styling**: Tailwind CSS 4 with custom configuration
-- **3D Graphics**: Three.js with Threlte (Svelte wrapper for Three.js)
 - **Testing**: Playwright for end-to-end tests
 - **Build Tool**: Vite 7
 - **Package Manager**: pnpm
