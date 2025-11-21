@@ -57,6 +57,7 @@ src/
 ├── routes/             # SvelteKit routes (file-based routing)
 ├── app.html            # HTML template
 ├── app.css             # Global styles
+├── hooks.server.ts     # SvelteKit server hooks
 └── hooks.ts            # SvelteKit hooks
 ```
 
@@ -87,8 +88,8 @@ Outputs to the `build/` directory.
 ### Testing
 
 ```bash
-pnpm test        # Run all tests
-pnpm run test:e2e  # Run Playwright e2e tests
+pnpm test          # Run Playwright e2e tests
+pnpm run test:e2e  # Run Playwright e2e tests (same as above)
 ```
 
 ### Code Quality
