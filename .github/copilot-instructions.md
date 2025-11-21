@@ -97,7 +97,7 @@ pnpm run test:e2e  # Run Playwright e2e tests (same as above)
 ```bash
 pnpm run lint         # Check formatting and linting
 pnpm run format       # Auto-format with Prettier
-pnpm run check        # Type check with Svelte
+pnpm run check        # Run Svelte type checking and sync
 pnpm run check:watch  # Type check in watch mode
 ```
 
