@@ -27,4 +27,4 @@ vite.config.ts.timestamp-*
 src/lib/paraglide
 
 .vscode
-project.inlang/cache
+project.inlang/cachepackage-lock.json
