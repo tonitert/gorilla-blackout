@@ -2,6 +2,7 @@
 	import Setup from '$lib/components/game/Setup.svelte';
 	import Game from '../lib/components/game/Game.svelte';
 	import { gameStateStore as gameState, type GameState, tryLoadData } from '$lib/gameState.svelte';
+	import { GameMode } from '$lib/multiplayer/types';
 
 	let pendingState = $state<GameState | undefined | 'loading'>('loading');
 	(async () => {
@@ -23,10 +24,16 @@
 	{:else}
 		<Setup
 			{pendingState}
-			onStart={(newPlayers) => {
+			onStart={(newPlayers, lobbyCode) => {
 				gameState.update((state) => {
 					state.players = newPlayers;
 					state.inGame = true;
+					if (lobbyCode) {
+						state.lobbyCode = lobbyCode;
+						state.gameMode = GameMode.MULTI_DEVICE;
+					} else {
+						state.gameMode = GameMode.SINGLE_DEVICE;
+					}
 					return state;
 				});
 			}}

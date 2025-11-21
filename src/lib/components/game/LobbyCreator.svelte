@@ -1,0 +1,158 @@
+<script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
+	import Button from '../ui/button/button.svelte';
+	import { WebSocketClient } from '$lib/multiplayer/websocketClient';
+	import { GameMode } from '$lib/multiplayer/types';
+	import PlayerSelector from './PlayerSelector.svelte';
+	import type { PlayerList } from './PlayerSelector.svelte';
+
+	let {
+		wsClient,
+		onBack,
+		onGameStart
+	}: {
+		wsClient: WebSocketClient;
+		onBack: () => void;
+		onGameStart: (players: PlayerList, lobbyCode: string) => void;
+	} = $props();
+
+	let multiplayerState = $state<any>(null);
+	let isConnecting = $state(true);
+	let connectionError = $state<string | null>(null);
+	let hasCreatedLobby = $state(false);
+	let hostPlayer = $state<PlayerList>([]);
+
+	const unsubscribe = wsClient.state.subscribe((state) => {
+		multiplayerState = state;
+		isConnecting = state.status === 'connecting';
+		connectionError = state.error;
+	});
+
+	onMount(async () => {
+		try {
+			await wsClient.connect();
+		} catch (error) {
+			console.error('Failed to connect:', error);
+			connectionError = 'Palvelimeen yhdistäminen epäonnistui';
+		}
+	});
+
+	onDestroy(() => {
+		unsubscribe();
+	});
+
+	function handleCreateLobby(players: PlayerList) {
+		if (players.length === 0) return;
+
+		// Store the host player
+		hostPlayer = players;
+
+		const player = {
+			id: '',
+			name: players[0].name,
+			image: players[0].image,
+			isHost: true
+		};
+
+		wsClient.createLobby(player);
+		hasCreatedLobby = true;
+	}
+
+	function handleStartGame() {
+		if (!multiplayerState?.lobby || hostPlayer.length === 0) return;
+
+		// Use all players from the lobby
+		const lobbyPlayers = multiplayerState.lobby.players.map((p: any, index: number) => ({
+			id: p.id,
+			name: p.name,
+			image: p.image,
+			position: 0
+		}));
+
+		onGameStart(lobbyPlayers, multiplayerState.lobby.code);
+	}
+
+	function copyCodeToClipboard() {
+		if (multiplayerState?.lobby?.code) {
+			navigator.clipboard.writeText(multiplayerState.lobby.code);
+		}
+	}
+</script>
+
+<div class="space-y-6">
+	<div class="flex items-center justify-between">
+		<h2 class="text-xl">Luo pelihuone</h2>
+		<Button variant="ghost" onclick={onBack}>Takaisin</Button>
+	</div>
+
+	{#if isConnecting}
+		<div class="rounded-xl border border-gray-600 p-6 text-center">
+			<p class="text-gray-400">Yhdistetään palvelimeen...</p>
+		</div>
+	{:else if connectionError}
+		<div class="rounded-xl border border-red-500 bg-red-500/10 p-6">
+			<p class="text-red-400">{connectionError}</p>
+			<Button class="mt-4" onclick={onBack}>Takaisin</Button>
+		</div>
+	{:else if !multiplayerState?.lobby}
+		<div class="rounded-xl border border-gray-600 p-6">
+			<p class="mb-4 text-gray-400">
+				Anna oma nimesi ja luo pelihuone. Saat koodin, jonka muut pelaajat voivat käyttää
+				liittyäkseen peliin.
+			</p>
+
+			<PlayerSelector
+				onSubmit={handleCreateLobby}
+				submitText="Luo pelihuone"
+				players={hostPlayer}
+				onPlayerAdd={(player) => {
+					// Only allow one player (host) when creating lobby
+					return player;
+				}}
+				compact={true}
+			/>
+		</div>
+	{:else}
+		<div class="space-y-4 rounded-xl border border-green-500 bg-green-500/10 p-6">
+			<div class="text-center">
+				<h3 class="text-lg font-semibold">Pelihuone luotu!</h3>
+				<p class="mt-2 text-sm text-gray-400">Jaa tämä koodi muille pelaajille:</p>
+			</div>
+
+			<div class="flex items-center justify-center space-x-2">
+				<div class="rounded-lg bg-black/30 px-6 py-3">
+					<span class="text-3xl font-bold tracking-wider">{multiplayerState.lobby.code}</span>
+				</div>
+				<Button variant="outline" onclick={copyCodeToClipboard}>Kopioi</Button>
+			</div>
+
+			<div class="rounded-lg border border-gray-600 p-4">
+				<h4 class="mb-2 font-semibold">Pelaajat ({multiplayerState.lobby.players.length})</h4>
+				<ul class="space-y-1">
+					{#each multiplayerState.lobby.players as player}
+						<li class="flex items-center justify-between rounded bg-black/20 px-3 py-2">
+							<span>{player.name}</span>
+							{#if player.isHost}
+								<span class="text-xs text-yellow-500">👑 Isäntä</span>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			</div>
+
+			<div class="flex space-x-2">
+				<Button
+					class="flex-1"
+					onclick={handleStartGame}
+					disabled={multiplayerState.lobby.players.length < 2}
+				>
+					Aloita peli
+				</Button>
+			</div>
+
+			{#if multiplayerState.lobby.players.length < 2}
+				<p class="text-center text-sm text-gray-400">Odota vähintään 2 pelaajaa aloittaaksesi</p>
+			{/if}
+		</div>
+	{/if}
+</div>

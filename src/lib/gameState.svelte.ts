@@ -2,6 +2,7 @@ import { writable, type Writable, get } from 'svelte/store';
 import { type PlayerList } from './components/game/PlayerSelector.svelte';
 import { stateVersion } from './gameStateVersion';
 import { setItem, getItem } from './helpers/indexedDB';
+import { GameMode } from './multiplayer/types';
 
 export interface GameState {
 	players: PlayerList;
@@ -11,6 +12,8 @@ export interface GameState {
 	spacebarTooltipShown: boolean;
 	version: number;
 	versionAvailable: string | null;
+	gameMode?: GameMode;
+	lobbyCode?: string;
 }
 
 const constantAttributes = {
@@ -24,6 +27,7 @@ export const gameStateStore: Writable<GameState> = writable({
 	currentTurnPlayerId: null,
 	inGame: false,
 	spacebarTooltipShown: false,
+	gameMode: GameMode.SINGLE_DEVICE,
 	...constantAttributes
 });
 let firstLoad = true;
