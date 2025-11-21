@@ -12,7 +12,7 @@
 
 import { build, files, version } from '$service-worker';
 
-console.log("[Service Worker] Version:", version);
+console.log('[Service Worker] Version:', version);
 
 // This gives `self` the correct types
 const self = globalThis.self as unknown as ServiceWorkerGlobalScope;
@@ -22,7 +22,7 @@ const CACHE = `cache-${version}`;
 
 const ASSETS = [
 	...build, // the app itself
-	...files  // everything in `static`
+	...files // everything in `static`
 ];
 
 self.addEventListener('install', (event) => {

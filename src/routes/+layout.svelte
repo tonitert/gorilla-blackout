@@ -5,9 +5,7 @@
 </script>
 
 <div class="app">
-
 	<main>
 		{@render children()}
 	</main>
-	
 </div>
