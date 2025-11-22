@@ -104,11 +104,7 @@
 				liittyäkseen peliin.
 			</p>
 
-			<SinglePlayerInput
-				onSubmit={handleCreateLobby}
-				submitText="Luo pelihuone"
-				bind:playerName
-			/>
+			<SinglePlayerInput onSubmit={handleCreateLobby} submitText="Luo pelihuone" bind:playerName />
 		</div>
 	{:else}
 		<div class="space-y-4 rounded-xl border border-green-500 bg-green-500/10 p-6">
