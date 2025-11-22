@@ -28,6 +28,7 @@
 	const isMultiDevice = $gameState.gameMode === GameMode.MULTI_DEVICE;
 	let wsClient: WebSocketClient | null = null;
 	let shouldSyncGameState = $state(true);
+	let isWsConnected = $state(false);
 
 	if (isMultiDevice && typeof window !== 'undefined') {
 		const backendUrl =
@@ -37,6 +38,16 @@
 
 		wsClient = new WebSocketClient(backendUrl);
 
+		// Connect to WebSocket
+		wsClient.connect().catch((error) => {
+			console.error('Failed to connect WebSocket:', error);
+		});
+
+		// Subscribe to connection status
+		const statusUnsubscribe = wsClient.state.subscribe((state) => {
+			isWsConnected = state.status === 'connected';
+		});
+
 		// Subscribe to incoming game state updates
 		const unsubscribe = wsClient.state.subscribe((state) => {
 			if (state.lobby?.gameState && shouldSyncGameState) {
@@ -45,7 +56,15 @@
 				shouldSyncGameState = false; // Prevent sending update back
 				gameState.update((localState) => ({
 					...localState,
-					players: serverState.players,
+					players: serverState.players.map(
+						(p) =>
+							new Player(
+								p.name,
+								(p.image as keyof typeof playerImages) || 'default',
+								p.position ?? 0,
+								p.id
+							)
+					),
 					turn: serverState.turn,
 					currentTurnPlayerId: serverState.currentTurnPlayerId
 				}));
@@ -57,6 +76,7 @@
 		});
 
 		onDestroy(() => {
+			statusUnsubscribe();
 			unsubscribe();
 			wsClient?.disconnect();
 		});
@@ -65,7 +85,7 @@
 	// Subscribe to local game state changes and send to server
 	if (isMultiDevice && wsClient) {
 		gameState.subscribe(($state) => {
-			if (shouldSyncGameState && wsClient) {
+			if (shouldSyncGameState && wsClient && isWsConnected) {
 				wsClient.updateGameState({
 					players: $state.players,
 					turn: $state.turn,
