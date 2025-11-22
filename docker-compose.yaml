@@ -6,3 +6,18 @@ services:
       dockerfile: Dockerfile
     ports:
       - '80:80'
+    depends_on:
+      - backend
+    environment:
+      - BACKEND_URL=http://backend:3001
+
+  backend:
+    restart: unless-stopped
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - '3001:3001'
+    environment:
+      - PORT=3001
+      - NODE_ENV=production

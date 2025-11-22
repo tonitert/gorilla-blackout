@@ -1,18 +1,40 @@
 <script lang="ts">
-	import { clearGameState, gameStateStore, type GameState } from '$lib/gameState.svelte';
+	import { gameStateStore, type GameState } from '$lib/gameState.svelte';
 	import Button from '../ui/button/button.svelte';
 	import logo from '$lib/assets/logo.webp';
 	import PlayerSelector from './PlayerSelector.svelte';
 	import type { PlayerList } from './PlayerSelector.svelte';
 	import { Skeleton } from '../ui/skeleton';
+	import GameModeSelector from './GameModeSelector.svelte';
+	import MultiplayerSetup from './MultiplayerSetup.svelte';
+	import { GameMode } from '$lib/multiplayer/types';
 
 	let {
 		onStart,
 		pendingState
 	}: {
-		onStart: (players: PlayerList) => void;
+		onStart: (players: PlayerList, lobbyCode?: string) => void;
 		pendingState: GameState | 'loading' | undefined;
 	} = $props();
+
+	type SetupView = 'intro' | 'mode-select' | 'single-device' | 'multi-device';
+	let currentView = $state<SetupView>('intro');
+
+	function handleModeSelect(mode: GameMode) {
+		if (mode === GameMode.SINGLE_DEVICE) {
+			currentView = 'single-device';
+		} else {
+			currentView = 'multi-device';
+		}
+	}
+
+	function handleSingleDeviceStart(players: PlayerList) {
+		onStart(players);
+	}
+
+	function handleMultiplayerStart(players: PlayerList, lobbyCode: string) {
+		onStart(players, lobbyCode);
+	}
 </script>
 
 <div class="m-auto flex max-w-200 flex-col space-y-6 p-5">
@@ -39,7 +61,7 @@
 			<h2 class="text-xl">Aikaisempi peli löytyi. Haluatko jatkaa?</h2>
 			<p>Pelaajat:</p>
 			<ul>
-				{#each pendingState.players as player}
+				{#each pendingState.players as player (player.id)}
 					<li>{player.name}</li>
 				{/each}
 			</ul>
@@ -53,7 +75,27 @@
 
 	<h2 class="text-xl">Aloita peli</h2>
 
-	<PlayerSelector onSubmit={onStart}></PlayerSelector>
+	{#if currentView === 'intro' || currentView === 'mode-select'}
+		<GameModeSelector
+			onSelect={(mode) => {
+				currentView = 'mode-select';
+				handleModeSelect(mode);
+			}}
+		/>
+	{/if}
+
+	{#if currentView === 'single-device'}
+		<div class="space-y-4">
+			<Button variant="ghost" class="cursor-pointer" onclick={() => (currentView = 'intro')}
+				>← Takaisin</Button
+			>
+			<PlayerSelector onSubmit={handleSingleDeviceStart}></PlayerSelector>
+		</div>
+	{/if}
+
+	{#if currentView === 'multi-device'}
+		<MultiplayerSetup onBack={() => (currentView = 'intro')} onGameStart={handleMultiplayerStart} />
+	{/if}
 </div>
 <footer class="p-5 text-center text-sm text-gray-500">
 	<p>
