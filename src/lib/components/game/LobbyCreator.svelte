@@ -61,6 +61,17 @@
 			position: 0
 		}));
 
+		// Send game start message to all players via WebSocket
+		const gameState = {
+			players: lobbyPlayers,
+			turn: 0,
+			currentTurnPlayerId: null,
+			inGame: true
+		};
+
+		wsClient.startGame(gameState);
+
+		// Also start locally for the host
 		onGameStart(lobbyPlayers, multiplayerState.lobby.code);
 	}
 

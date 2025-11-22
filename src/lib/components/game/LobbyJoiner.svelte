@@ -22,11 +22,17 @@
 	let connectionError = $state<string | null>(null);
 	let multiplayerState = $state<MultiplayerState | null>(null);
 	let hasJoined = $state(false);
+	let joinError = $state<string | null>(null);
 
 	const unsubscribe = wsClient.state.subscribe((state) => {
 		multiplayerState = state;
 		isConnecting = state.status === 'connecting';
 		connectionError = state.error;
+
+		// Check for join errors
+		if (state.error && hasJoined && !state.lobby) {
+			joinError = state.error;
+		}
 
 		// When game starts, notify parent
 		if (state.lobby?.gameState && hasJoined) {
@@ -63,8 +69,18 @@
 			isHost: false
 		};
 
+		joinError = null; // Clear any previous errors
 		wsClient.joinLobby(lobbyCode.trim().toUpperCase(), player);
 		hasJoined = true;
+	}
+
+	function handleTryAgain() {
+		joinError = null;
+		hasJoined = false;
+		lobbyCode = '';
+		playerName = '';
+		// Clear error from state
+		wsClient.state.update((s) => ({ ...s, error: null }));
 	}
 </script>
 
@@ -78,10 +94,19 @@
 		<div class="rounded-xl border border-gray-600 p-6 text-center">
 			<p class="text-gray-400">Yhdistetään palvelimeen...</p>
 		</div>
-	{:else if connectionError}
+	{:else if connectionError && !joinError}
 		<div class="rounded-xl border border-red-500 bg-red-500/10 p-6">
 			<p class="text-red-400">{connectionError}</p>
 			<Button class="mt-4 cursor-pointer" onclick={onBack}>Takaisin</Button>
+		</div>
+	{:else if joinError}
+		<div class="rounded-xl border border-red-500 bg-red-500/10 p-6">
+			<h3 class="mb-2 text-lg font-semibold text-red-400">Virhe liittyessä pelihuoneeseen</h3>
+			<p class="mb-4 text-red-300">{joinError}</p>
+			<div class="flex space-x-2">
+				<Button class="flex-1 cursor-pointer" onclick={handleTryAgain}>Yritä uudelleen</Button>
+				<Button variant="outline" class="flex-1 cursor-pointer" onclick={onBack}>Takaisin</Button>
+			</div>
 		</div>
 	{:else if !multiplayerState?.lobby}
 		<div class="rounded-xl border border-gray-600 p-6">
