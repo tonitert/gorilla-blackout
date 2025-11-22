@@ -86,7 +86,9 @@
 
 	{#if currentView === 'single-device'}
 		<div class="space-y-4">
-			<Button variant="ghost" onclick={() => (currentView = 'intro')}>← Takaisin</Button>
+			<Button variant="ghost" class="cursor-pointer" onclick={() => (currentView = 'intro')}
+				>← Takaisin</Button
+			>
 			<PlayerSelector onSubmit={handleSingleDeviceStart}></PlayerSelector>
 		</div>
 	{/if}

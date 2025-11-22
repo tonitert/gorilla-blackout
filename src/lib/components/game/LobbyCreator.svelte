@@ -2,8 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import Button from '../ui/button/button.svelte';
 	import { WebSocketClient, type MultiplayerState } from '$lib/multiplayer/websocketClient';
-	import PlayerSelector from './PlayerSelector.svelte';
-	import type { PlayerList } from './PlayerSelector.svelte';
+	import SinglePlayerInput from './SinglePlayerInput.svelte';
 	import type { Player } from '$lib/multiplayer/types';
 
 	let {
@@ -13,13 +12,13 @@
 	}: {
 		wsClient: WebSocketClient;
 		onBack: () => void;
-		onGameStart: (players: PlayerList, lobbyCode: string) => void;
+		onGameStart: (players: any[], lobbyCode: string) => void;
 	} = $props();
 
 	let multiplayerState = $state<MultiplayerState | null>(null);
 	let isConnecting = $state(true);
 	let connectionError = $state<string | null>(null);
-	let hostPlayer = $state<PlayerList>([]);
+	let playerName = $state('');
 
 	const unsubscribe = wsClient.state.subscribe((state) => {
 		multiplayerState = state;
@@ -40,14 +39,11 @@
 		unsubscribe();
 	});
 
-	function handleCreateLobby(players: PlayerList) {
-		if (players.length === 0) return;
-
-		// Only use the first player as the host
+	function handleCreateLobby(name: string) {
 		const player = {
 			id: '',
-			name: players[0].name,
-			image: players[0].image,
+			name: name,
+			image: 'default',
 			isHost: true
 		};
 
@@ -55,7 +51,7 @@
 	}
 
 	function handleStartGame() {
-		if (!multiplayerState?.lobby || hostPlayer.length === 0) return;
+		if (!multiplayerState?.lobby) return;
 
 		// Use all players from the lobby
 		const lobbyPlayers = multiplayerState.lobby.players.map((p: Player) => ({
@@ -78,7 +74,7 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<h2 class="text-xl">Luo pelihuone</h2>
-		<Button variant="ghost" onclick={onBack}>Takaisin</Button>
+		<Button variant="ghost" class="cursor-pointer" onclick={onBack}>Takaisin</Button>
 	</div>
 
 	{#if isConnecting}
@@ -88,7 +84,7 @@
 	{:else if connectionError}
 		<div class="rounded-xl border border-red-500 bg-red-500/10 p-6">
 			<p class="text-red-400">{connectionError}</p>
-			<Button class="mt-4" onclick={onBack}>Takaisin</Button>
+			<Button class="mt-4 cursor-pointer" onclick={onBack}>Takaisin</Button>
 		</div>
 	{:else if !multiplayerState?.lobby}
 		<div class="rounded-xl border border-gray-600 p-6">
@@ -97,15 +93,10 @@
 				liittyäkseen peliin.
 			</p>
 
-			<PlayerSelector
+			<SinglePlayerInput
 				onSubmit={handleCreateLobby}
 				submitText="Luo pelihuone"
-				players={hostPlayer}
-				onPlayerAdd={(player) => {
-					// Only allow one player (host) when creating lobby
-					return player;
-				}}
-				compact={true}
+				bind:playerName
 			/>
 		</div>
 	{:else}
@@ -119,7 +110,9 @@
 				<div class="rounded-lg bg-black/30 px-6 py-3">
 					<span class="text-3xl font-bold tracking-wider">{multiplayerState.lobby.code}</span>
 				</div>
-				<Button variant="outline" onclick={copyCodeToClipboard}>Kopioi</Button>
+				<Button variant="outline" class="cursor-pointer" onclick={copyCodeToClipboard}
+					>Kopioi</Button
+				>
 			</div>
 
 			<div class="rounded-lg border border-gray-600 p-4">
@@ -138,7 +131,7 @@
 
 			<div class="flex space-x-2">
 				<Button
-					class="flex-1"
+					class="flex-1 cursor-pointer"
 					onclick={handleStartGame}
 					disabled={multiplayerState.lobby.players.length < 2}
 				>

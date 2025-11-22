@@ -41,7 +41,7 @@
 		<div class="space-y-6">
 			<div class="flex items-center justify-between">
 				<h2 class="text-xl">Monilaitepeli</h2>
-				<Button variant="ghost" onclick={onBack}>Takaisin</Button>
+				<Button variant="ghost" class="cursor-pointer" onclick={onBack}>Takaisin</Button>
 			</div>
 
 			<p class="text-gray-400">
@@ -51,7 +51,7 @@
 
 			<div class="grid gap-4 sm:grid-cols-2">
 				<button
-					class="flex flex-col items-center justify-center space-y-3 rounded-xl border-2 border-gray-600 p-6 transition-all hover:border-blue-500 hover:bg-blue-500/10"
+					class="cursor-pointer flex flex-col items-center justify-center space-y-3 rounded-xl border-2 border-gray-600 p-6 transition-all hover:border-blue-500 hover:bg-blue-500/10"
 					onclick={() => (currentView = 'create')}
 				>
 					<div class="text-5xl">➕</div>
@@ -60,7 +60,7 @@
 				</button>
 
 				<button
-					class="flex flex-col items-center justify-center space-y-3 rounded-xl border-2 border-gray-600 p-6 transition-all hover:border-blue-500 hover:bg-blue-500/10"
+					class="cursor-pointer flex flex-col items-center justify-center space-y-3 rounded-xl border-2 border-gray-600 p-6 transition-all hover:border-blue-500 hover:bg-blue-500/10"
 					onclick={() => (currentView = 'join')}
 				>
 					<div class="text-5xl">🔗</div>

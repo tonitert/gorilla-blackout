@@ -3,8 +3,7 @@
 	import Button from '../ui/button/button.svelte';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { WebSocketClient, type MultiplayerState } from '$lib/multiplayer/websocketClient';
-	import PlayerSelector from './PlayerSelector.svelte';
-	import type { PlayerList } from './PlayerSelector.svelte';
+	import SinglePlayerInput from './SinglePlayerInput.svelte';
 	import type { Player } from '$lib/multiplayer/types';
 
 	let {
@@ -14,11 +13,11 @@
 	}: {
 		wsClient: WebSocketClient;
 		onBack: () => void;
-		onGameStart: (players: PlayerList, lobbyCode: string) => void;
+		onGameStart: (players: any[], lobbyCode: string) => void;
 	} = $props();
 
 	let lobbyCode = $state('');
-	let playerInfo = $state<PlayerList>([]);
+	let playerName = $state('');
 	let isConnecting = $state(true);
 	let connectionError = $state<string | null>(null);
 	let multiplayerState = $state<MultiplayerState | null>(null);
@@ -54,15 +53,13 @@
 		unsubscribe();
 	});
 
-	function handleJoinLobby(players: PlayerList) {
-		if (!lobbyCode.trim() || players.length === 0) return;
-
-		playerInfo = players;
+	function handleJoinLobby(name: string) {
+		if (!lobbyCode.trim()) return;
 
 		const player = {
 			id: '',
-			name: players[0].name,
-			image: players[0].image,
+			name: name,
+			image: 'default',
 			isHost: false
 		};
 
@@ -74,7 +71,7 @@
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<h2 class="text-xl">Liity pelihuoneeseen</h2>
-		<Button variant="ghost" onclick={onBack}>Takaisin</Button>
+		<Button variant="ghost" class="cursor-pointer" onclick={onBack}>Takaisin</Button>
 	</div>
 
 	{#if isConnecting}
@@ -84,7 +81,7 @@
 	{:else if connectionError}
 		<div class="rounded-xl border border-red-500 bg-red-500/10 p-6">
 			<p class="text-red-400">{connectionError}</p>
-			<Button class="mt-4" onclick={onBack}>Takaisin</Button>
+			<Button class="mt-4 cursor-pointer" onclick={onBack}>Takaisin</Button>
 		</div>
 	{:else if !multiplayerState?.lobby}
 		<div class="rounded-xl border border-gray-600 p-6">
@@ -104,15 +101,10 @@
 				/>
 			</div>
 
-			<PlayerSelector
+			<SinglePlayerInput
 				onSubmit={handleJoinLobby}
 				submitText="Liity pelihuoneeseen"
-				players={playerInfo}
-				onPlayerAdd={(player) => {
-					// Only allow one player when joining
-					return player;
-				}}
-				compact={true}
+				bind:playerName
 			/>
 		</div>
 	{:else}
