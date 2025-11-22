@@ -2,7 +2,7 @@ FROM node:22-alpine3.22 AS builder
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json pnpm-lock.yaml ./
 
 RUN npm install -g pnpm && \
     pnpm install --frozen-lockfile
@@ -16,7 +16,7 @@ FROM node:22-alpine3.22
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json pnpm-lock.yaml ./
 
 RUN npm install -g pnpm && \
     pnpm install --frozen-lockfile --prod

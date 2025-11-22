@@ -62,19 +62,19 @@ export class WebSocketManager {
 
 			switch (message.type) {
 				case MessageType.CREATE_LOBBY:
-					this.handleCreateLobby(client, message.payload);
+					this.handleCreateLobby(client, message.payload as { player: Player });
 					break;
 				case MessageType.JOIN_LOBBY:
-					this.handleJoinLobby(client, message.payload);
+					this.handleJoinLobby(client, message.payload as { code: string; player: Player });
 					break;
 				case MessageType.LEAVE_LOBBY:
 					this.handleLeaveLobby(client);
 					break;
 				case MessageType.START_GAME:
-					this.handleStartGame(client, message.payload);
+					this.handleStartGame(client, message.payload as { gameState: unknown });
 					break;
 				case MessageType.UPDATE_GAME_STATE:
-					this.handleUpdateGameState(client, message.payload);
+					this.handleUpdateGameState(client, message.payload as { gameState: unknown });
 					break;
 				default:
 					this.sendError(client.ws, `Unknown message type: ${message.type}`);
