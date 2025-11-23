@@ -5,6 +5,7 @@
 	import PlayerSelector from './PlayerSelector.svelte';
 	import type { PlayerList } from './PlayerSelector.svelte';
 	import { Skeleton } from '../ui/skeleton';
+	import Announcements from './Announcements.svelte';
 
 	let {
 		onStart,
@@ -22,7 +23,7 @@
 
 	<p class="text-lg">
 		Tervetuloa Gorilla Blackoutiin, kahden opiskelijan kehittämään äärimmäisen rajuun juomapeliin!
-		Nopilla pelattavana lautapelinä luonnollisesti tavoitteena on päästä maaliin suorittaen tehtäviä
+		Nopilla pelattavana lautapelinä luonnellisesti tavoitteena on päästä maaliin suorittaen tehtäviä
 		laudalla, mutta se on helpommin sanottu kuin tehty - ja peli on sitä rankempi, mitä enemmän
 		pelaajia on mukana!
 		<br /><br />
@@ -30,6 +31,7 @@
 		runsaasti. Onnea matkaan!
 	</p>
 
+	<Announcements />
 	{#if pendingState === 'loading'}
 		<Skeleton class="shadow-grey mt-10 h-[300px] w-full rounded-xl ring ring-gray-600" />
 	{:else if pendingState && pendingState.inGame}
