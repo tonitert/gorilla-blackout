@@ -5,6 +5,7 @@
 	import PlayerSelector from './PlayerSelector.svelte';
 	import type { PlayerList } from './PlayerSelector.svelte';
 	import { Skeleton } from '../ui/skeleton';
+	import Announcements from './Announcements.svelte';
 
 	let {
 		onStart,
@@ -30,6 +31,7 @@
 		runsaasti. Onnea matkaan!
 	</p>
 
+	<Announcements />
 	{#if pendingState === 'loading'}
 		<Skeleton class="shadow-grey mt-10 h-[300px] w-full rounded-xl ring ring-gray-600" />
 	{:else if pendingState && pendingState.inGame}
