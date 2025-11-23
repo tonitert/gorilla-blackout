@@ -23,7 +23,7 @@
 
 	<p class="text-lg">
 		Tervetuloa Gorilla Blackoutiin, kahden opiskelijan kehittämään äärimmäisen rajuun juomapeliin!
-		Nopilla pelattavana lautapelinä luonnellisesti tavoitteena on päästä maaliin suorittaen tehtäviä
+		Nopilla pelattavana lautapelinä luonnollisesti tavoitteena on päästä maaliin suorittaen tehtäviä
 		laudalla, mutta se on helpommin sanottu kuin tehty - ja peli on sitä rankempi, mitä enemmän
 		pelaajia on mukana!
 		<br /><br />
