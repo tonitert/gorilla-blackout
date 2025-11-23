@@ -39,8 +39,7 @@ export const announcements: Announcement[] = [
 	{
 		id: 'welcome',
 		title: 'Gorilla Blackoutilla on nyt Telegram-kanava!',
-		content:
-			Telegram,
+		content: Telegram,
 		date: '2025-11-23'
 	}
 ];
