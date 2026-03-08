@@ -2,11 +2,34 @@
 	import Setup from '$lib/components/game/Setup.svelte';
 	import Game from '../lib/components/game/Game.svelte';
 	import { gameStateStore as gameState, type GameState, tryLoadData } from '$lib/gameState.svelte';
+	import { enableMultiplayerSync, multiplayerStore } from '$lib/multiplayer/client';
+	import { isE2EMode } from '$lib/testing/e2eMode';
+	import { get } from 'svelte/store';
 
 	let pendingState = $state<GameState | undefined | 'loading'>('loading');
 	(async () => {
 		pendingState = await tryLoadData();
 	})();
+
+	if (typeof window !== 'undefined') {
+		enableMultiplayerSync();
+	}
+
+
+if (typeof window !== 'undefined' && isE2EMode(window.location.search)) {
+	gameState.subscribe((state) => {
+		(window as Window & { __GB_STATE__?: GameState }).__GB_STATE__ = $state.snapshot(state);
+	});
+	(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__ = () => {
+		const lobby = get(multiplayerStore).lobby;
+		gameState.update((state) => ({
+			...state,
+			players: lobby?.players ?? state.players,
+			currentTurnPlayerId: lobby?.players[0]?.id ?? state.currentTurnPlayerId,
+			inGame: true
+		}));
+	};
+}
 </script>
 
 <svelte:head>
