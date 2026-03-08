@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { clearGameState, gameStateStore, type GameState } from '$lib/gameState.svelte';
+	import { gameStateStore, type GameState } from '$lib/gameState.svelte';
 	import Button from '../ui/button/button.svelte';
 	import logo from '$lib/assets/logo.webp';
 	import PlayerSelector from './PlayerSelector.svelte';
 	import type { PlayerList } from './PlayerSelector.svelte';
 	import { Skeleton } from '../ui/skeleton';
 	import Announcements from './Announcements.svelte';
+	import MultiplayerSetup from './MultiplayerSetup.svelte';
+	import { multiplayerStore, setMode } from '$lib/multiplayer/client';
 
 	let {
 		onStart,
@@ -55,7 +57,22 @@
 
 	<h2 class="text-xl">Aloita peli</h2>
 
-	<PlayerSelector onSubmit={onStart}></PlayerSelector>
+	<div class="mt-4 flex gap-2">
+		<Button
+			variant={$multiplayerStore.mode === 'single' ? 'default' : 'outline'}
+			onclick={() => setMode('single')}>Yksi laite</Button
+		>
+		<Button
+			variant={$multiplayerStore.mode === 'multi' ? 'default' : 'outline'}
+			onclick={() => setMode('multi')}>Moni laite</Button
+		>
+	</div>
+
+	{#if $multiplayerStore.mode === 'single'}
+		<PlayerSelector onSubmit={onStart}></PlayerSelector>
+	{:else}
+		<MultiplayerSetup />
+	{/if}
 </div>
 <footer class="p-5 text-center text-sm text-gray-500">
 	<p>

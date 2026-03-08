@@ -6,3 +6,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - '80:80'
+
+  backend:
+    restart: unless-stopped
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - '3001:3001'

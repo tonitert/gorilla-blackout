@@ -29,13 +29,21 @@ pnpm install
 
 ### Running the Development Server
 
-Start the development server with hot module replacement:
+Start the frontend development server:
 
 ```bash
 pnpm run dev
 ```
 
-The application will be available at `http://localhost:5173` (default Vite port).
+Start the multiplayer backend in a second terminal:
+
+```bash
+cd backend
+pnpm install
+pnpm run dev
+```
+
+The frontend will be available at `http://localhost:5173` and backend at `http://localhost:3001`.
 
 ### Preview Production Build
 
@@ -107,13 +115,13 @@ pnpm test
 
 ### Docker
 
-Build and run the application using Docker:
+Build and run the frontend + multiplayer backend using Docker:
 
 ```bash
 docker-compose up --build
 ```
 
-The application will be available at `http://localhost`.
+The frontend will be available at `http://localhost` and backend at `http://localhost:3001`.
 
 ### Cloudflare Pages
 

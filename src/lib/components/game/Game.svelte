@@ -17,8 +17,10 @@
 	import PlayerEditor from './PlayerEditor.svelte';
 	import { Player } from '$lib/player';
 	import { IsUsingKeyboard } from 'bits-ui';
+	import { isE2EMode } from '$lib/testing/e2eMode';
 
 	const colors = ['#3559e8', '#d8de23', '#12e627', '#db1229'];
+	const e2eMode = typeof window !== 'undefined' && isE2EMode(window.location.search);
 	const shouldShowTooltip = $derived(IsUsingKeyboard.current);
 
 	const leftBorderSize = 2;
@@ -45,7 +47,13 @@
 	let overlayButtonText: string | null = $state(null);
 	let currentTile: Tile<any, any> | null = $state(null);
 
-	$gameState.currentTurnPlayerId = $gameState.players[0].id;
+	let initializedTurnPlayer = $state(false);
+
+	$effect(() => {
+		if (initializedTurnPlayer || $gameState.players.length === 0 || $gameState.currentTurnPlayerId) return;
+		initializedTurnPlayer = true;
+		gameState.update((state) => ({ ...state, currentTurnPlayerId: state.players[0].id }));
+	});
 
 	let currentPlayer = derived(
 		gameState,
@@ -143,7 +151,7 @@
 
 	async function onDiceRolled(results: number[]) {
 		const startPos = $currentPlayer.position;
-		const steps = results[0];
+		const steps = e2eMode ? 6 : results[0];
 		let endPos = Math.min(startPos + steps, lastTilePosition);
 
 		// Check for unskippable tiles on the path
@@ -169,6 +177,11 @@
 	}
 
 	function showTileForPlayer(player: Player) {
+		if (e2eMode) {
+			currentTile = null;
+			endTurn();
+			return;
+		}
 		const pos = player.position;
 		if (tiles.hasOwnProperty(pos)) {
 			const tile = tiles[pos];
@@ -188,9 +201,17 @@
 				overlayButtonText = text;
 			},
 			movePlayer: (offset: number, index: number, triggerTile?: boolean) => {
-				$gameState.players[index].position += offset;
-				if (triggerTile !== false) {
-					showTileForPlayer($gameState.players[index]);
+				let movedPlayer: Player | undefined;
+				gameState.update((state) => {
+					const players = state.players.map((player, playerIndex) => {
+						if (playerIndex !== index) return player;
+						movedPlayer = { ...player, position: player.position + offset };
+						return movedPlayer;
+					});
+					return { ...state, players };
+				});
+				if (triggerTile !== false && movedPlayer) {
+					showTileForPlayer(movedPlayer);
 				}
 			},
 			positions: $gameState.players.map((player) => player.position),
@@ -199,8 +220,11 @@
 	}
 
 	function endTurn() {
-		$gameState.turn += 1;
-		$gameState.currentTurnPlayerId = $nextPlayer.id;
+		gameState.update((state) => ({
+			...state,
+			turn: state.turn + 1,
+			currentTurnPlayerId: $nextPlayer.id
+		}));
 		currentTile = null;
 	}
 
@@ -254,7 +278,13 @@
 		{/each}
 		<div class="absolute flex h-full w-full flex-col items-center justify-center">
 			{#if dieRolling}
-				<Dice result={onDiceRolled} />
+				<Dice
+					result={onDiceRolled}
+					riggedResult={e2eMode ? [6] : undefined}
+					timeBetweenChanges={e2eMode ? 1 : 70}
+					changesBeforeSettle={e2eMode ? 1 : 9}
+					finalWaitTime={e2eMode ? 10 : 2000}
+				/>
 			{/if}
 			{#if currentTile !== null}
 				<div
@@ -334,7 +364,7 @@
 		<PlayerEditor
 			players={$gameState.players}
 			onSubmit={(players) => {
-				$gameState.players = players;
+				gameState.update((state) => ({ ...state, players }));
 			}}
 		/>
 	</div>
