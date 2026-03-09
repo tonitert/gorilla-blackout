@@ -44,6 +44,7 @@ type Lobby = {
 	players: Player[];
 	inGame: boolean;
 	state: GameState | null;
+	pendingRoll: number | null;
 };
 
 const lobbies = new Map<string, Lobby>();
@@ -85,7 +86,14 @@ app.post('/api/lobbies', async (request, reply) => {
 	let code = generateCode();
 	while (lobbies.has(code)) code = generateCode();
 	const host: Player = { ...parsed.data, id: randomUUID(), position: 0 };
-	const lobby: Lobby = { code, hostId: host.id, players: [host], inGame: false, state: null };
+	const lobby: Lobby = {
+		code,
+		hostId: host.id,
+		players: [host],
+		inGame: false,
+		state: null,
+		pendingRoll: null
+	};
 	lobbies.set(code, lobby);
 	return { code, playerId: host.id, lobby: publicLobby(lobby) };
 });
@@ -159,6 +167,7 @@ app.post<{ Params: { code: string }; Body: { playerId?: string } }>(
 		if (lobby.inGame) return reply.code(409).send({ error: 'Game already started' });
 		lobby.inGame = true;
 		lobby.state = createInitialGameState(lobby);
+		lobby.pendingRoll = null;
 		io.to(code).emit('lobby:update', publicLobby(lobby));
 		io.to(code).emit('game:state', lobby.state);
 		return { lobby: publicLobby(lobby), state: lobby.state };
@@ -199,7 +208,26 @@ io.on('connection', (socket) => {
 		if (allowedActor && allowedActor !== playerId) return;
 
 		lobby.state = parsedState.data;
+		if (lobby.state.diceValue !== null) {
+			lobby.pendingRoll = null;
+		}
 		io.to(code).emit('game:state', lobby.state);
+	});
+
+	socket.on('game:roll:request', (payload) => {
+		if (!lobby.inGame || !lobby.state) return;
+		if ((payload as { actorId?: string }).actorId !== playerId) return;
+
+		const allowedActor = lobby.state.turnInProgress
+			? lobby.state.turnOwnerId
+			: lobby.state.currentTurnPlayerId;
+		if (allowedActor && allowedActor !== playerId) return;
+		if (lobby.state.phase !== 'rolling' || lobby.state.diceValue !== null) return;
+
+		if (lobby.pendingRoll === null) {
+			lobby.pendingRoll = Math.floor(Math.random() * 6) + 1;
+		}
+		io.to(code).emit('game:roll', lobby.pendingRoll);
 	});
 });
 

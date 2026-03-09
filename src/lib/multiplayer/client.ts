@@ -26,6 +26,7 @@ const defaultSession: Session = {
 };
 
 export const multiplayerStore = writable<Session>(defaultSession);
+export const serverDiceRollStore = writable<number | null>(null);
 
 let socket: Socket | null = null;
 let suppressSync = false;
@@ -44,6 +45,7 @@ function disconnectAndResetSession(mode: GameMode = 'single') {
 	socket?.disconnect();
 	socket = null;
 	suppressSync = false;
+	serverDiceRollStore.set(null);
 	multiplayerStore.set({ ...defaultSession, mode });
 }
 
@@ -101,7 +103,21 @@ function connect() {
 		suppressSync = true;
 		gameStateStore.set(state);
 		suppressSync = false;
+		if (state.phase === 'rolling' && state.diceValue === null) {
+			serverDiceRollStore.set(null);
+		}
 	});
+	socket.on('game:roll', (value: number) => {
+		if (Number.isInteger(value) && value >= 1 && value <= 6) {
+			serverDiceRollStore.set(value);
+		}
+	});
+}
+
+export function requestServerDiceRoll() {
+	const session = get(multiplayerStore);
+	if (session.mode !== 'multi' || !session.code || !session.playerId) return;
+	socket?.emit('game:roll:request', { actorId: session.playerId });
 }
 
 export async function startLobbyGame() {
