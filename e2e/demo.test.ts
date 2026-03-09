@@ -21,13 +21,6 @@ async function getExposedRoll(page: Page): Promise<number | null | undefined> {
 	});
 }
 
-async function getVisibleDieNumber(page: Page): Promise<number | null> {
-	const alt = await page.locator('img.dice').first().getAttribute('alt');
-	if (!alt) return null;
-	const match = alt.match(/(\d+)/);
-	return match ? Number(match[1]) : null;
-}
-
 async function openCharacterPicker(page: Page) {
 	await page.getByRole('button', { name: 'Valitse pelihahmo' }).click();
 }
