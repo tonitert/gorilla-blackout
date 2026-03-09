@@ -1,51 +1,14 @@
-name: CI
+name: Warm caches
 
 on:
-  pull_request:
   push:
     branches:
       - master
 
 jobs:
-  unit-tests:
-    name: Unit tests
+  warm-cache:
+    name: Warm dependency and Playwright caches
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Get pnpm store directory
-        id: pnpm-store
-        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
-
-      - name: Restore pnpm store cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.pnpm-store.outputs.path }}
-          key: pnpm-store-node22-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'backend/pnpm-lock.yaml') }}
-          restore-keys: |
-            pnpm-store-node22-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run unit tests
-        run: pnpm run test:unit
-
-  ui-tests:
-    name: UI tests (Playwright)
-    runs-on: ubuntu-latest
-    needs: unit-tests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -85,6 +48,3 @@ jobs:
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
-
-      - name: Run UI tests
-        run: pnpm run test:e2e
