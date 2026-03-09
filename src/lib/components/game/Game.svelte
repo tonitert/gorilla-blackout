@@ -22,6 +22,10 @@
 
 	const colors = ['#3559e8', '#d8de23', '#12e627', '#db1229'];
 	const e2eMode = typeof window !== 'undefined' && isE2EMode(window.location.search);
+	const useDeterministicE2EDice =
+		typeof window !== 'undefined' &&
+		e2eMode &&
+		new URLSearchParams(window.location.search).get('randomDice') !== '1';
 	const shouldShowTooltip = $derived(IsUsingKeyboard.current);
 
 	const leftBorderSize = 2;
@@ -163,8 +167,12 @@
 	}
 
 	async function onDiceRolled(results: number[]) {
+		if (!canLocalPlayerAct) {
+			return;
+		}
+
 		const startPos = $currentPlayer.position;
-		const steps = e2eMode ? 6 : results[0];
+		const steps = useDeterministicE2EDice ? 6 : results[0];
 		let endPos = Math.min(startPos + steps, lastTilePosition);
 
 		for (let i = 1; i <= steps; i++) {
@@ -306,10 +314,10 @@
 			{#if $gameState.phase === 'rolling'}
 				<Dice
 					result={onDiceRolled}
-					riggedResult={e2eMode ? [6] : undefined}
-					timeBetweenChanges={e2eMode ? 30 : 70}
-					changesBeforeSettle={e2eMode ? 3 : 9}
-					finalWaitTime={e2eMode ? 250 : 2000}
+					riggedResult={useDeterministicE2EDice ? [6] : undefined}
+					timeBetweenChanges={useDeterministicE2EDice ? 30 : 70}
+					changesBeforeSettle={useDeterministicE2EDice ? 3 : 9}
+					finalWaitTime={useDeterministicE2EDice ? 250 : 2000}
 				/>
 			{/if}
 			{#if currentTile !== null}

@@ -100,7 +100,7 @@ test('multiplayer enforces unique character selection across sessions', async ({
 	await guestContext.close();
 });
 
-test.skip('plays multiplayer game with synchronized movement on both screens', async ({
+test('keeps deterministic multiplayer turns synchronized on both screens', async ({
 	browser
 }) => {
 	test.setTimeout(90_000);
@@ -145,8 +145,7 @@ test.skip('plays multiplayer game with synchronized movement on both screens', a
 	expect(hostPlayerId).toBeTruthy();
 	expect(guestPlayerId).toBeTruthy();
 
-	let synchronizedMoves = 0;
-	for (let i = 0; i < 40; i++) {
+		for (let i = 0; i < 90; i++) {
 		const previous = await getExposedState(hostPage);
 		const actorPage = previous.currentTurnPlayerId === guestPlayerId ? guestPage : hostPage;
 		await actorPage.evaluate(() => {
@@ -166,19 +165,77 @@ test.skip('plays multiplayer game with synchronized movement on both screens', a
 			)
 			.toBe(true);
 		const guestState = await getExposedState(guestPage);
-		if (
-			JSON.stringify(previous.players.map((player) => player.position)) !==
-			JSON.stringify(hostState.players.map((player) => player.position))
-		) {
-			synchronizedMoves += 1;
-		}
-
 		if (hostState.players.every((player) => player.position >= 55)) {
 			break;
 		}
 	}
 
-	expect(synchronizedMoves).toBeGreaterThan(0);
+	const finalHostState = await getExposedState(hostPage);
+	const finalGuestState = await getExposedState(guestPage);
+	expect(finalGuestState.players.map((p) => p.position)).toEqual(finalHostState.players.map((p) => p.position));
+
+	await hostContext.close();
+	await guestContext.close();
+});
+
+test('keeps multiplayer movement synchronized with random dice throws', async ({ browser }) => {
+	test.setTimeout(120_000);
+
+	const hostContext = await browser.newContext();
+	const guestContext = await browser.newContext();
+	const hostPage = await hostContext.newPage();
+	const guestPage = await guestContext.newPage();
+
+	await hostPage.goto('/?e2e=1&randomDice=1');
+	await guestPage.goto('/?e2e=1&randomDice=1');
+
+	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
+	const code = await createLobbyAndReadCode(hostPage);
+	await hostPage.getByLabel('Nimi').first().fill('Host');
+	await hostPage.getByRole('button', { name: 'Tallenna pelaaja' }).click();
+
+	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
+	await joinLobbyWithCode(guestPage, code);
+	await guestPage.getByLabel('Nimi').first().fill('Guest');
+	await guestPage.getByRole('button', { name: 'Tallenna pelaaja' }).click();
+
+	await expect(hostPage.getByText('Guest')).toBeVisible({ timeout: 15_000 });
+	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
+
+	await hostPage.evaluate(() => {
+		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.();
+	});
+	await guestPage.evaluate(() => {
+		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.();
+	});
+
+	await expect(hostPage.locator('.game')).toBeVisible();
+	await expect(guestPage.locator('.game')).toBeVisible();
+
+	let movesChecked = 0;
+	for (let i = 0; i < 18; i++) {
+		const before = await getExposedState(hostPage);
+		const actorPage = before.currentTurnPlayerId === before.players.find((p) => p.name === 'Guest')?.id ? guestPage : hostPage;
+		await actorPage.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+
+		await expect
+			.poll(
+				async () => {
+					const hs = await getExposedState(hostPage);
+					const gs = await getExposedState(guestPage);
+					return JSON.stringify(hs.players.map((p) => p.position)) === JSON.stringify(gs.players.map((p) => p.position));
+				},
+				{ timeout: 8_000 }
+			)
+			.toBe(true);
+		movesChecked += 1;
+	}
+
+	expect(movesChecked).toBe(18);
 
 	await hostContext.close();
 	await guestContext.close();
