@@ -17,13 +17,15 @@ type Session = {
 
 const backendUrl = import.meta.env.PUBLIC_BACKEND_URL ?? 'http://localhost:3001';
 
-export const multiplayerStore = writable<Session>({
+const defaultSession: Session = {
 	mode: 'single',
 	code: null,
 	playerId: null,
 	isHost: false,
 	lobby: null
-});
+};
+
+export const multiplayerStore = writable<Session>(defaultSession);
 
 let socket: Socket | null = null;
 let suppressSync = false;
@@ -36,6 +38,13 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 	});
 	if (!response.ok) throw new Error(await response.text());
 	return response.json();
+}
+
+function disconnectAndResetSession(mode: GameMode = 'single') {
+	socket?.disconnect();
+	socket = null;
+	suppressSync = false;
+	multiplayerStore.set({ ...defaultSession, mode });
 }
 
 export async function createLobby(name: string, image: string) {
@@ -102,7 +111,6 @@ export async function startLobbyGame() {
 		playerId: session.playerId
 	});
 	multiplayerStore.update((state) => ({ ...state, lobby: payload.lobby }));
-	socket?.emit('game:start');
 }
 
 export function enableMultiplayerSync() {
@@ -117,5 +125,9 @@ export function enableMultiplayerSync() {
 }
 
 export function setMode(mode: GameMode) {
+	if (mode === 'single') {
+		disconnectAndResetSession('single');
+		return;
+	}
 	multiplayerStore.update((state) => ({ ...state, mode }));
 }

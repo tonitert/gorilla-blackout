@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import Setup from '$lib/components/game/Setup.svelte';
 	import Game from '../lib/components/game/Game.svelte';
 	import { gameStateStore as gameState, type GameState, tryLoadData } from '$lib/gameState.svelte';
@@ -11,30 +12,41 @@
 		pendingState = await tryLoadData();
 	})();
 
-	if (typeof window !== 'undefined') {
-		enableMultiplayerSync();
-	}
+	onMount(() => {
+		const cleanupMultiplayerSync = enableMultiplayerSync();
+		let cleanupE2E = () => {};
 
+		if (isE2EMode(window.location.search)) {
+			const unsubscribeState = gameState.subscribe((state) => {
+				(window as Window & { __GB_STATE__?: GameState }).__GB_STATE__ = $state.snapshot(state);
+			});
+			(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__ = () => {
+				const lobby = get(multiplayerStore).lobby;
+				gameState.update((state) => ({
+					...state,
+					players: (lobby?.players as GameState['players'] | undefined) ?? state.players,
+					currentTurnPlayerId: lobby?.players[0]?.id ?? state.currentTurnPlayerId,
+					turnInProgress: false,
+					turnOwnerId: null,
+					phase: 'idle',
+					activeTilePosition: null,
+					diceValue: null,
+					inGame: true
+				}));
+			};
 
-if (typeof window !== 'undefined' && isE2EMode(window.location.search)) {
-	gameState.subscribe((state) => {
-		(window as Window & { __GB_STATE__?: GameState }).__GB_STATE__ = $state.snapshot(state);
+			cleanupE2E = () => {
+				unsubscribeState();
+				delete (window as Window & { __GB_STATE__?: GameState }).__GB_STATE__;
+				delete (window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__;
+			};
+		}
+
+		return () => {
+			cleanupMultiplayerSync();
+			cleanupE2E();
+		};
 	});
-	(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__ = () => {
-		const lobby = get(multiplayerStore).lobby;
-		gameState.update((state) => ({
-			...state,
-			players: (lobby?.players as GameState['players'] | undefined) ?? state.players,
-			currentTurnPlayerId: lobby?.players[0]?.id ?? state.currentTurnPlayerId,
-			turnInProgress: false,
-			turnOwnerId: null,
-			phase: 'idle',
-			activeTilePosition: null,
-			diceValue: null,
-			inGame: true
-		}));
-	};
-}
 </script>
 
 <svelte:head>
