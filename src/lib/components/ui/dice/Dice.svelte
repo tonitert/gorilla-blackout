@@ -42,10 +42,13 @@
 			diceNumbers = diceNumbers.map(() => getRandomInt(0, 6));
 		}
 		await wait(finalWaitTime);
+		const settledResults = riggedResult ?? diceNumbers.map((num) => num + 1);
+		diceNumbers = settledResults.map((num) => Math.min(6, Math.max(1, num)) - 1);
+		await wait(800);
 		if (riggedResult) {
-			result(riggedResult);
+			result(settledResults);
 		} else {
-			result(diceNumbers.map((num) => num + 1));
+			result(settledResults);
 		}
 	});
 </script>

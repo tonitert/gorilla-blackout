@@ -21,6 +21,13 @@ async function getExposedRoll(page: Page): Promise<number | null | undefined> {
 	});
 }
 
+async function getVisibleDieNumber(page: Page): Promise<number | null> {
+	const alt = await page.locator('img.dice').first().getAttribute('alt');
+	if (!alt) return null;
+	const match = alt.match(/(\d+)/);
+	return match ? Number(match[1]) : null;
+}
+
 async function openCharacterPicker(page: Page) {
 	await page.getByRole('button', { name: 'Valitse pelihahmo' }).click();
 }
@@ -282,6 +289,61 @@ test('keeps multiplayer movement synchronized with random dice throws', async ({
 	}
 
 	expect(movesChecked).toBe(18);
+
+	await hostContext.close();
+	await guestContext.close();
+});
+
+test('shows the same dice value on screen as server-calculated roll', async ({ browser }) => {
+	const hostContext = await browser.newContext();
+	const guestContext = await browser.newContext();
+	const hostPage = await hostContext.newPage();
+	const guestPage = await guestContext.newPage();
+
+	await hostPage.goto('/?e2e=1&randomDice=1');
+	await guestPage.goto('/?e2e=1&randomDice=1');
+
+	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
+	const code = await createLobbyAndReadCode(hostPage);
+	await hostPage.getByLabel('Nimi').first().fill('Host');
+	await hostPage.getByRole('button', { name: 'Tallenna pelaaja' }).click();
+
+	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
+	await joinLobbyWithCode(guestPage, code);
+	await guestPage.getByLabel('Nimi').first().fill('Guest');
+	await guestPage.getByRole('button', { name: 'Tallenna pelaaja' }).click();
+
+	await expect(hostPage.getByText('Guest')).toBeVisible({ timeout: 15_000 });
+	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
+
+	await hostPage.evaluate(() => {
+		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.();
+	});
+	await guestPage.evaluate(() => {
+		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.();
+	});
+
+	await expect(hostPage.locator('.game')).toBeVisible();
+	await expect(guestPage.locator('.game')).toBeVisible();
+
+	await hostPage.evaluate(() => {
+		(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+	});
+
+	await expect.poll(async () => await getExposedRoll(hostPage), { timeout: 8_000 }).not.toBeNull();
+
+	await expect
+		.poll(
+			async () => {
+				const hostDie = await getVisibleDieNumber(hostPage);
+				const roll = await getExposedRoll(hostPage);
+				return hostDie !== null && roll !== null && hostDie === roll;
+			},
+			{ timeout: 8_000 }
+		)
+		.toBe(true);
 
 	await hostContext.close();
 	await guestContext.close();
