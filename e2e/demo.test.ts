@@ -6,11 +6,18 @@ type ExposedGameState = {
 	phase: 'idle' | 'rolling' | 'tile';
 	activeTilePosition: number | null;
 	currentTurnPlayerId?: string | null;
+	diceValue?: number | null;
 };
 
 async function getExposedState(page: Page): Promise<ExposedGameState> {
 	return page.evaluate(() => {
 		return (window as Window & { __GB_STATE__?: ExposedGameState }).__GB_STATE__!;
+	});
+}
+
+async function getExposedRoll(page: Page): Promise<number | null | undefined> {
+	return page.evaluate(() => {
+		return (window as Window & { __GB_ROLL__?: number | null }).__GB_ROLL__;
 	});
 }
 
@@ -242,6 +249,21 @@ test('keeps multiplayer movement synchronized with random dice throws', async ({
 		await actorPage.evaluate(() => {
 			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
 		});
+
+		await expect
+			.poll(
+				async () => {
+					const hostRoll = await getExposedRoll(hostPage);
+					const guestRoll = await getExposedRoll(guestPage);
+					return hostRoll !== null && hostRoll !== undefined && hostRoll === guestRoll;
+				},
+				{ timeout: 8_000 }
+			)
+			.toBe(true);
+
+		const hostRoll = await getExposedRoll(hostPage);
+		expect(hostRoll).toBeGreaterThanOrEqual(1);
+		expect(hostRoll).toBeLessThanOrEqual(6);
 
 		await expect
 			.poll(
