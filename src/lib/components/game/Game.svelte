@@ -18,7 +18,11 @@
 	import { Player } from '$lib/player';
 	import { IsUsingKeyboard } from 'bits-ui';
 	import { isE2EMode } from '$lib/testing/e2eMode';
-	import { multiplayerStore } from '$lib/multiplayer/client';
+	import {
+		multiplayerStore,
+		requestServerDiceRoll,
+		serverDiceRollStore
+	} from '$lib/multiplayer/client';
 
 	const colors = ['#3559e8', '#d8de23', '#12e627', '#db1229'];
 	const e2eMode = typeof window !== 'undefined' && isE2EMode(window.location.search);
@@ -57,7 +61,8 @@
 	let initializedTurnPlayer = $state(false);
 
 	$effect(() => {
-		if (initializedTurnPlayer || $gameState.players.length === 0 || $gameState.currentTurnPlayerId) return;
+		if (initializedTurnPlayer || $gameState.players.length === 0 || $gameState.currentTurnPlayerId)
+			return;
 		initializedTurnPlayer = true;
 		gameState.update((state) => ({ ...state, currentTurnPlayerId: state.players[0].id }));
 	});
@@ -161,7 +166,10 @@
 			diceValue: null
 		}));
 
-		if (tiles.hasOwnProperty($nextPlayer.position) && tiles[$nextPlayer.position].moveStartElement) {
+		if (
+			tiles.hasOwnProperty($nextPlayer.position) &&
+			tiles[$nextPlayer.position].moveStartElement
+		) {
 			showTileForPlayer($nextPlayer);
 		}
 	}
@@ -186,7 +194,9 @@
 		gameState.update((state) => ({
 			...state,
 			diceValue: steps,
-			players: state.players.map((p) => (p.id === $currentPlayer.id ? { ...p, position: endPos } : p)),
+			players: state.players.map((p) =>
+				p.id === $currentPlayer.id ? { ...p, position: endPos } : p
+			),
 			phase: 'tile'
 		}));
 		showTileForPlayer($currentPlayer);
@@ -249,7 +259,18 @@
 
 	const canLocalPlayerAct = $derived.by(() => {
 		if ($multiplayerStore.mode !== 'multi') return true;
-		return $multiplayerStore.playerId !== null && $multiplayerStore.playerId === $gameState.currentTurnPlayerId;
+		return (
+			$multiplayerStore.playerId !== null &&
+			$multiplayerStore.playerId === $gameState.currentTurnPlayerId
+		);
+	});
+
+	$effect(() => {
+		if ($multiplayerStore.mode !== 'multi') return;
+		if (!canLocalPlayerAct) return;
+		if ($gameState.phase !== 'rolling' || $gameState.diceValue !== null) return;
+		if ($serverDiceRollStore !== null) return;
+		requestServerDiceRoll();
 	});
 
 	function handleNextTurnButtonClick() {
@@ -312,13 +333,21 @@
 		{/each}
 		<div class="absolute flex h-full w-full flex-col items-center justify-center">
 			{#if $gameState.phase === 'rolling'}
-				<Dice
-					result={onDiceRolled}
-					riggedResult={useDeterministicE2EDice ? [6] : undefined}
-					timeBetweenChanges={useDeterministicE2EDice ? 30 : 70}
-					changesBeforeSettle={useDeterministicE2EDice ? 3 : 9}
-					finalWaitTime={useDeterministicE2EDice ? 250 : 2000}
-				/>
+				{#if $multiplayerStore.mode === 'multi' && !useDeterministicE2EDice && $serverDiceRollStore === null}
+					<p class="rounded bg-black/60 px-4 py-2 text-white">Heitetään noppaa...</p>
+				{:else}
+					<Dice
+						result={onDiceRolled}
+						riggedResult={useDeterministicE2EDice
+							? [6]
+							: $multiplayerStore.mode === 'multi' && $serverDiceRollStore !== null
+								? [$serverDiceRollStore]
+								: undefined}
+						timeBetweenChanges={useDeterministicE2EDice ? 30 : 70}
+						changesBeforeSettle={useDeterministicE2EDice ? 3 : 9}
+						finalWaitTime={useDeterministicE2EDice ? 250 : 2000}
+					/>
+				{/if}
 			{/if}
 			{#if currentTile !== null}
 				<div
@@ -345,7 +374,9 @@
 		}
 	</style>
 	{#if $gameState.players.length > 0}
-		<p class="my-4 w-full grow-0 text-center text-2xl text-white">Pelaajan {$currentPlayer.name} vuoro!</p>
+		<p class="my-4 w-full grow-0 text-center text-2xl text-white">
+			Pelaajan {$currentPlayer.name} vuoro!
+		</p>
 	{/if}
 
 	<div class="m-auto flex grow-0 items-center justify-center gap-12">
@@ -375,7 +406,9 @@
 						{@render nextTurnButton()}
 					</Tooltip.Trigger>
 					<Tooltip.Content class="align-center flex gap-2 text-center">
-						<p class="text-lg">Vinkki: Voit myös painaa välilyöntiä siirtyäksesi seuraavaan vuoroon!</p>
+						<p class="text-lg">
+							Vinkki: Voit myös painaa välilyöntiä siirtyäksesi seuraavaan vuoroon!
+						</p>
 						<button
 							onclick={() => {
 								gameState.update((state) => {

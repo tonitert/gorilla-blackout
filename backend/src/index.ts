@@ -13,14 +13,38 @@ const playerSchema = z.object({
 	image: z.string().min(1)
 });
 
+const gamePlayerSchema = z.object({
+	id: z.string(),
+	name: z.string(),
+	image: z.string(),
+	position: z.number().int().nonnegative()
+});
+
+const gameStateSchema = z.object({
+	players: z.array(gamePlayerSchema),
+	turn: z.number().int().nonnegative(),
+	currentTurnPlayerId: z.string().nullable(),
+	turnInProgress: z.boolean(),
+	turnOwnerId: z.string().nullable(),
+	phase: z.enum(['idle', 'rolling', 'tile']),
+	activeTilePosition: z.number().int().nonnegative().nullable(),
+	diceValue: z.number().int().min(1).max(6).nullable(),
+	inGame: z.boolean(),
+	spacebarTooltipShown: z.boolean(),
+	version: z.number(),
+	versionAvailable: z.string().nullable()
+});
+
 type Player = z.infer<typeof playerSchema> & { id: string; position: number };
+type GameState = z.infer<typeof gameStateSchema>;
 
 type Lobby = {
 	code: string;
 	hostId: string;
 	players: Player[];
 	inGame: boolean;
-	state: unknown;
+	state: GameState | null;
+	pendingRoll: number | null;
 };
 
 const lobbies = new Map<string, Lobby>();
@@ -34,7 +58,7 @@ const publicLobby = (lobby: Lobby) => ({
 	inGame: lobby.inGame
 });
 
-const createInitialGameState = (lobby: Lobby) => ({
+const createInitialGameState = (lobby: Lobby): GameState => ({
 	players: lobby.players,
 	turn: 0,
 	currentTurnPlayerId: lobby.players[0]?.id ?? null,
@@ -62,7 +86,14 @@ app.post('/api/lobbies', async (request, reply) => {
 	let code = generateCode();
 	while (lobbies.has(code)) code = generateCode();
 	const host: Player = { ...parsed.data, id: randomUUID(), position: 0 };
-	const lobby: Lobby = { code, hostId: host.id, players: [host], inGame: false, state: null };
+	const lobby: Lobby = {
+		code,
+		hostId: host.id,
+		players: [host],
+		inGame: false,
+		state: null,
+		pendingRoll: null
+	};
 	lobbies.set(code, lobby);
 	return { code, playerId: host.id, lobby: publicLobby(lobby) };
 });
@@ -100,9 +131,8 @@ app.post<{ Params: { code: string }; Body: { playerId?: string; name?: string; i
 
 		if (request.body.name !== undefined) {
 			const name = request.body.name.trim();
-			if (name.length < 1 || name.length > 100) {
+			if (name.length < 1 || name.length > 100)
 				return reply.code(400).send({ error: 'Invalid name' });
-			}
 			player.name = name;
 		}
 
@@ -126,16 +156,18 @@ app.get<{ Params: { code: string } }>('/api/lobbies/:code', async (request, repl
 	return { lobby: publicLobby(lobby) };
 });
 
-
 app.post<{ Params: { code: string }; Body: { playerId?: string } }>(
 	'/api/lobbies/:code/start',
 	async (request, reply) => {
 		const code = request.params.code.toUpperCase();
 		const lobby = lobbies.get(code);
 		if (!lobby) return reply.code(404).send({ error: 'Lobby not found' });
-		if (request.body?.playerId !== lobby.hostId) return reply.code(403).send({ error: 'Only host can start' });
+		if (request.body?.playerId !== lobby.hostId)
+			return reply.code(403).send({ error: 'Only host can start' });
+		if (lobby.inGame) return reply.code(409).send({ error: 'Game already started' });
 		lobby.inGame = true;
 		lobby.state = createInitialGameState(lobby);
+		lobby.pendingRoll = null;
 		io.to(code).emit('lobby:update', publicLobby(lobby));
 		io.to(code).emit('game:state', lobby.state);
 		return { lobby: publicLobby(lobby), state: lobby.state };
@@ -161,37 +193,41 @@ io.on('connection', (socket) => {
 	socket.emit('lobby:update', publicLobby(lobby));
 	if (lobby.state) socket.emit('game:state', lobby.state);
 
-	socket.on('game:start', () => {
-		if (playerId !== lobby.hostId) return;
-		lobby.inGame = true;
-		lobby.state = createInitialGameState(lobby);
-		io.to(code).emit('lobby:update', publicLobby(lobby));
+	socket.on('game:state:update', (payload) => {
+		if (!lobby.inGame || !payload) return;
+		if ((payload as { actorId?: string }).actorId !== playerId) return;
+
+		const candidateState = (payload as { state?: unknown }).state;
+		const parsedState = gameStateSchema.safeParse(candidateState);
+		if (!parsedState.success) return;
+
+		const previous = lobby.state;
+		const allowedActor = previous?.turnInProgress
+			? previous.turnOwnerId
+			: previous?.currentTurnPlayerId;
+		if (allowedActor && allowedActor !== playerId) return;
+
+		lobby.state = parsedState.data;
+		if (lobby.state.diceValue !== null) {
+			lobby.pendingRoll = null;
+		}
 		io.to(code).emit('game:state', lobby.state);
 	});
 
-	socket.on('game:state:update', (payload) => {
-		if (!lobby.inGame) return;
-		if (!payload) return;
-		const nextState = (payload as { state?: unknown }).state ?? payload;
-		if (typeof nextState !== 'object' || nextState === null) return;
-		if ((payload as { actorId?: string }).actorId && (payload as { actorId?: string }).actorId !== playerId) {
-			return;
-		}
+	socket.on('game:roll:request', (payload) => {
+		if (!lobby.inGame || !lobby.state) return;
+		if ((payload as { actorId?: string }).actorId !== playerId) return;
 
-		const previous = (lobby.state ?? {}) as {
-			currentTurnPlayerId?: string | null;
-			turnInProgress?: boolean;
-			turnOwnerId?: string | null;
-		};
-		const allowedActor = previous.turnInProgress
-			? previous.turnOwnerId
-			: previous.currentTurnPlayerId;
-		if (allowedActor && allowedActor !== playerId) {
-			return;
-		}
+		const allowedActor = lobby.state.turnInProgress
+			? lobby.state.turnOwnerId
+			: lobby.state.currentTurnPlayerId;
+		if (allowedActor && allowedActor !== playerId) return;
+		if (lobby.state.phase !== 'rolling' || lobby.state.diceValue !== null) return;
 
-		lobby.state = nextState;
-		io.to(code).emit('game:state', nextState);
+		if (lobby.pendingRoll === null) {
+			lobby.pendingRoll = Math.floor(Math.random() * 6) + 1;
+		}
+		io.to(code).emit('game:roll', lobby.pendingRoll);
 	});
 });
 

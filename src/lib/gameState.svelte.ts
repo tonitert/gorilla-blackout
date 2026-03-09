@@ -23,7 +23,7 @@ const constantAttributes = {
 	versionAvailable: null
 };
 
-export const gameStateStore: Writable<GameState> = writable({
+const initialGameState: GameState = {
 	players: [],
 	turn: 0,
 	currentTurnPlayerId: null,
@@ -35,7 +35,9 @@ export const gameStateStore: Writable<GameState> = writable({
 	inGame: false,
 	spacebarTooltipShown: false,
 	...constantAttributes
-});
+};
+
+export const gameStateStore: Writable<GameState> = writable(initialGameState);
 let firstLoad = true;
 if (typeof window !== 'undefined') {
 	gameStateStore.subscribe((gameState) => {
@@ -74,12 +76,15 @@ export async function tryLoadData(): Promise<GameState | undefined> {
 	}
 	try {
 		const data = await getItem<GameState>('gameState');
-		gameStateStore.set({
-			...get(gameStateStore),
-			spacebarTooltipShown: data?.spacebarTooltipShown || false
-		});
+		if (!data) return undefined;
 
-		return data;
+		const mergedData: GameState = {
+			...initialGameState,
+			...data,
+			...constantAttributes
+		};
+
+		return mergedData;
 	} catch (error) {
 		console.error('Failed to load game state from IndexedDB:', error);
 		return undefined;
