@@ -18,6 +18,7 @@
 	import { Player } from '$lib/player';
 	import { IsUsingKeyboard } from 'bits-ui';
 	import { isE2EMode } from '$lib/testing/e2eMode';
+	import { multiplayerStore } from '$lib/multiplayer/client';
 
 	const colors = ['#3559e8', '#d8de23', '#12e627', '#db1229'];
 	const e2eMode = typeof window !== 'undefined' && isE2EMode(window.location.search);
@@ -42,10 +43,12 @@
 	let coordinates = derived(gameState, ($gameState) =>
 		$gameState.players.map((player, index) => calculatePosition(player.position, index))
 	);
-	let dieRolling = $state(false);
-
 	let overlayButtonText: string | null = $state(null);
-	let currentTile: Tile<any, any> | null = $state(null);
+	let currentTile = $derived<Tile<any, any> | null>(
+		$gameState.activeTilePosition !== null && tiles.hasOwnProperty($gameState.activeTilePosition)
+			? tiles[$gameState.activeTilePosition]
+			: null
+	);
 
 	let initializedTurnPlayer = $state(false);
 
@@ -97,7 +100,6 @@
 				return result;
 			}
 		}
-		// Fallback: just use a random position, even if it overlaps
 		let fallbackX = boardX + xRandomPlacement * Math.random();
 		let fallbackY = boardY + yRandomPlacement * Math.random();
 		const fallback: [number, number] = [fallbackX, fallbackY];
@@ -135,17 +137,28 @@
 
 	function nextTurn() {
 		if (allPlayersWon()) {
-			dieRolling = false;
-			currentTile = null;
+			gameState.update((state) => ({
+				...state,
+				turnInProgress: false,
+				turnOwnerId: null,
+				phase: 'idle',
+				activeTilePosition: null,
+				diceValue: null
+			}));
 			return;
 		}
-		if (
-			tiles.hasOwnProperty($nextPlayer.position) &&
-			tiles[$nextPlayer.position].moveStartElement
-		) {
+
+		gameState.update((state) => ({
+			...state,
+			turnInProgress: true,
+			turnOwnerId: state.currentTurnPlayerId,
+			phase: 'rolling',
+			activeTilePosition: null,
+			diceValue: null
+		}));
+
+		if (tiles.hasOwnProperty($nextPlayer.position) && tiles[$nextPlayer.position].moveStartElement) {
 			showTileForPlayer($nextPlayer);
-		} else {
-			dieRolling = true;
 		}
 	}
 
@@ -154,7 +167,6 @@
 		const steps = e2eMode ? 6 : results[0];
 		let endPos = Math.min(startPos + steps, lastTilePosition);
 
-		// Check for unskippable tiles on the path
 		for (let i = 1; i <= steps; i++) {
 			const checkPos = startPos + i;
 			if (tiles.hasOwnProperty(checkPos) && tiles[checkPos]?.unskippable) {
@@ -163,31 +175,26 @@
 			}
 		}
 
-		gameState.update((state) => {
-			state.players = state.players.map((p) => {
-				if (p.id === $currentPlayer.id) {
-					p.position = endPos;
-				}
-				return p;
-			});
-			return state;
-		});
-		dieRolling = false;
+		gameState.update((state) => ({
+			...state,
+			diceValue: steps,
+			players: state.players.map((p) => (p.id === $currentPlayer.id ? { ...p, position: endPos } : p)),
+			phase: 'tile'
+		}));
 		showTileForPlayer($currentPlayer);
 	}
 
 	function showTileForPlayer(player: Player) {
 		if (e2eMode) {
-			currentTile = null;
+			gameState.update((state) => ({ ...state, activeTilePosition: null, phase: 'idle' }));
 			endTurn();
 			return;
 		}
 		const pos = player.position;
 		if (tiles.hasOwnProperty(pos)) {
-			const tile = tiles[pos];
-			currentTile = tile;
+			gameState.update((state) => ({ ...state, activeTilePosition: pos, phase: 'tile' }));
 		} else {
-			currentTile = null;
+			gameState.update((state) => ({ ...state, activeTilePosition: null, phase: 'idle' }));
 			endTurn();
 		}
 	}
@@ -223,12 +230,22 @@
 		gameState.update((state) => ({
 			...state,
 			turn: state.turn + 1,
-			currentTurnPlayerId: $nextPlayer.id
+			currentTurnPlayerId: $nextPlayer.id,
+			turnInProgress: false,
+			turnOwnerId: null,
+			phase: 'idle',
+			activeTilePosition: null,
+			diceValue: null
 		}));
-		currentTile = null;
 	}
 
+	const canLocalPlayerAct = $derived.by(() => {
+		if ($multiplayerStore.mode !== 'multi') return true;
+		return $multiplayerStore.playerId !== null && $multiplayerStore.playerId === $gameState.currentTurnPlayerId;
+	});
+
 	function handleNextTurnButtonClick() {
+		if (!canLocalPlayerAct) return;
 		if (allPlayersWon()) {
 			clearGameState();
 		} else if (currentTile !== null) {
@@ -244,7 +261,7 @@
 <section style="height: 100vh; height: 100svh;" class="flex w-full flex-col items-start pb-2">
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div
-		class="game relative m-auto aspect-square max-h-[100vw] max-w-[100vw] grow-1 bg-contain bg-no-repeat cursor-pointer"
+		class="game relative m-auto aspect-square max-h-[100vw] max-w-[100vw] grow-1 cursor-pointer bg-contain bg-no-repeat"
 		style="background-image: url({board});"
 		onclick={handleNextTurnButtonClick}
 		role="button"
@@ -258,13 +275,11 @@
 				height: {$gameState.players[i].image === 'default' ? playerSize : imagePlayerSize}%;
 				aspect-ratio: 1/1;
 				"
-				class="transition-[bottom, left] absolute flex
-				aspect-square items-center justify-center duration-500 ease-in-out"
+				class="transition-[bottom, left] absolute flex aspect-square items-center justify-center duration-500 ease-in-out"
 			>
 				{#if $gameState.players[i].image === 'default'}
 					<div
-						class="aspect-square h-full w-full rounded-xl
-						border-2 border-solid border-black"
+						class="aspect-square h-full w-full rounded-xl border-2 border-solid border-black"
 						style="background-color: {colors[i % colors.length]}"
 					></div>
 				{:else}
@@ -277,7 +292,7 @@
 			</div>
 		{/each}
 		<div class="absolute flex h-full w-full flex-col items-center justify-center">
-			{#if dieRolling}
+			{#if $gameState.phase === 'rolling'}
 				<Dice
 					result={onDiceRolled}
 					riggedResult={e2eMode ? [6] : undefined}
@@ -311,18 +326,16 @@
 		}
 	</style>
 	{#if $gameState.players.length > 0}
-		<p class="my-4 w-full grow-0 text-center text-2xl text-white">
-			Pelaajan {$currentPlayer.name} vuoro!
-		</p>
+		<p class="my-4 w-full grow-0 text-center text-2xl text-white">Pelaajan {$currentPlayer.name} vuoro!</p>
 	{/if}
 
 	<div class="m-auto flex grow-0 items-center justify-center gap-12">
 		{#snippet nextTurnButton()}
 			<Button
 				size="lg"
-				class="m-auto grow-0 "
+				class="m-auto grow-0"
 				variant="outline"
-				disabled={dieRolling}
+				disabled={$gameState.phase === 'rolling' || !canLocalPlayerAct}
 				onclick={handleNextTurnButtonClick}
 			>
 				{currentTile !== null
@@ -343,9 +356,7 @@
 						{@render nextTurnButton()}
 					</Tooltip.Trigger>
 					<Tooltip.Content class="align-center flex gap-2 text-center">
-						<p class="text-lg">
-							Vinkki: Voit myös painaa välilyöntiä siirtyäksesi seuraavaan vuoroon!
-						</p>
+						<p class="text-lg">Vinkki: Voit myös painaa välilyöntiä siirtyäksesi seuraavaan vuoroon!</p>
 						<button
 							onclick={() => {
 								gameState.update((state) => {
@@ -372,7 +383,7 @@
 
 <svelte:window
 	on:keydown={(e) => {
-		if (e.key === ' ' && !dieRolling) {
+		if (e.key === ' ' && $gameState.phase !== 'rolling' && canLocalPlayerAct) {
 			handleNextTurnButtonClick();
 		}
 	}}

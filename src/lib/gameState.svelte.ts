@@ -7,6 +7,11 @@ export interface GameState {
 	players: PlayerList;
 	turn: number;
 	currentTurnPlayerId: string | null;
+	turnInProgress: boolean;
+	turnOwnerId: string | null;
+	phase: 'idle' | 'rolling' | 'tile';
+	activeTilePosition: number | null;
+	diceValue: number | null;
 	inGame: boolean;
 	spacebarTooltipShown: boolean;
 	version: number;
@@ -22,6 +27,11 @@ export const gameStateStore: Writable<GameState> = writable({
 	players: [],
 	turn: 0,
 	currentTurnPlayerId: null,
+	turnInProgress: false,
+	turnOwnerId: null,
+	phase: 'idle',
+	activeTilePosition: null,
+	diceValue: null,
 	inGame: false,
 	spacebarTooltipShown: false,
 	...constantAttributes
@@ -49,6 +59,11 @@ export function clearGameState() {
 		players: [],
 		turn: 0,
 		currentTurnPlayerId: null,
+		turnInProgress: false,
+		turnOwnerId: null,
+		phase: 'idle',
+		activeTilePosition: null,
+		diceValue: null,
 		inGame: false
 	});
 }

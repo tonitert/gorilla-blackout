@@ -24,8 +24,13 @@ if (typeof window !== 'undefined' && isE2EMode(window.location.search)) {
 		const lobby = get(multiplayerStore).lobby;
 		gameState.update((state) => ({
 			...state,
-			players: lobby?.players ?? state.players,
+			players: (lobby?.players as GameState['players'] | undefined) ?? state.players,
 			currentTurnPlayerId: lobby?.players[0]?.id ?? state.currentTurnPlayerId,
+			turnInProgress: false,
+			turnOwnerId: null,
+			phase: 'idle',
+			activeTilePosition: null,
+			diceValue: null,
 			inGame: true
 		}));
 	};
@@ -47,11 +52,17 @@ if (typeof window !== 'undefined' && isE2EMode(window.location.search)) {
 		<Setup
 			{pendingState}
 			onStart={(newPlayers) => {
-				gameState.update((state) => {
-					state.players = newPlayers;
-					state.inGame = true;
-					return state;
-				});
+				gameState.update((state) => ({
+					...state,
+					players: newPlayers,
+					inGame: true,
+					turnInProgress: false,
+					turnOwnerId: null,
+					phase: 'idle',
+					activeTilePosition: null,
+					diceValue: null,
+					currentTurnPlayerId: newPlayers[0]?.id ?? null
+				}));
 			}}
 		/>
 	{/if}
