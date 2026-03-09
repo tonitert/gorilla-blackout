@@ -35,7 +35,9 @@
 
 	$effect(() => {
 		const localPlayerId = $multiplayerStore.playerId;
-		const localPlayer = $multiplayerStore.lobby?.players.find((player) => player.id === localPlayerId);
+		const localPlayer = $multiplayerStore.lobby?.players.find(
+			(player) => player.id === localPlayerId
+		);
 		if (!localPlayer) return;
 		localName = localPlayer.name;
 		localImage = (localPlayer.image in playerImages ? localPlayer.image : 'default') as PlayerImage;
@@ -85,11 +87,13 @@
 
 	{#if !$multiplayerStore.lobby}
 		<div class="flex gap-2">
-			<Button variant={setupMode === 'host' ? 'default' : 'outline'} onclick={() => (setupMode = 'host')}
-				>Hostaa peli</Button
+			<Button
+				variant={setupMode === 'host' ? 'default' : 'outline'}
+				onclick={() => (setupMode = 'host')}>Hostaa peli</Button
 			>
-			<Button variant={setupMode === 'join' ? 'default' : 'outline'} onclick={() => (setupMode = 'join')}
-				>Liity peliin</Button
+			<Button
+				variant={setupMode === 'join' ? 'default' : 'outline'}
+				onclick={() => (setupMode = 'join')}>Liity peliin</Button
 			>
 		</div>
 
@@ -98,7 +102,8 @@
 		{:else if setupMode === 'join'}
 			<label for="multi-code">Liittymiskoodi</label>
 			<Input id="multi-code" bind:value={code} placeholder="ABC123" />
-			<Button onclick={onJoin} disabled={!code}>Liity peliin</Button>
+			<Button data-testid="join-lobby-submit" onclick={onJoin} disabled={!code}>Liity peliin</Button
+			>
 		{/if}
 	{/if}
 
@@ -116,7 +121,11 @@
 
 				<Collapsible.Root class="mt-5">
 					<Collapsible.Trigger
-						class={buttonVariants({ variant: 'ghost', size: 'sm', class: 'w-full justify-start p-2' })}
+						class={buttonVariants({
+							variant: 'ghost',
+							size: 'sm',
+							class: 'w-full justify-start p-2'
+						})}
 					>
 						<div class="flex w-full items-center space-x-2">
 							<h4 class="text-sm font-semibold">Valitse pelihahmo</h4>
@@ -136,7 +145,7 @@
 							>
 								<p class="text-center text-xs">Ei hahmoa</p>
 							</Toggle>
-							{#each Object.entries(playerImages) as [name, image]}
+							{#each Object.entries(playerImages) as [name, image] (name)}
 								<Toggle
 									class="flex h-[unset] w-full flex-col items-center justify-center p-3"
 									disabled={usedImages.has(name)}
@@ -146,7 +155,7 @@
 										e.preventDefault();
 									}}
 								>
-									<img src={image} alt={image} class="h-16 w-16 object-contain" />
+									<img src={image} alt={name} class="h-16 w-16 object-contain" />
 									<p class="mt-1 text-center text-xs break-words">{name}</p>
 								</Toggle>
 							{/each}
@@ -158,12 +167,12 @@
 			</div>
 
 			<ul class="mt-4 space-y-1">
-				{#each $multiplayerStore.lobby.players as player}
+				{#each $multiplayerStore.lobby.players as player (player.id)}
 					<li class="flex items-center gap-2">
 						{#if player.image !== 'default' && player.image in playerImages}
 							<img
 								src={playerImages[player.image as keyof typeof playerImages]}
-								alt={player.image}
+								alt={`${player.name} hahmo`}
 								class="h-8 w-8 object-contain"
 							/>
 						{/if}
@@ -186,7 +195,18 @@
 				<div class="mt-4">
 					<Button
 						onclick={() => {
-							gameStateStore.update((state) => ({ ...state, inGame: true }));
+							gameStateStore.update((state) => ({
+								...state,
+								players: $multiplayerStore.lobby?.players ?? state.players,
+								currentTurnPlayerId:
+									$multiplayerStore.lobby?.players[0]?.id ?? state.currentTurnPlayerId,
+								turnInProgress: false,
+								turnOwnerId: null,
+								phase: 'idle',
+								activeTilePosition: null,
+								diceValue: null,
+								inGame: true
+							}));
 						}}>Siirry peliin</Button
 					>
 				</div>

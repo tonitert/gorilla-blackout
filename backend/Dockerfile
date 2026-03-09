@@ -1,7 +1,13 @@
 FROM node:22-alpine
 WORKDIR /app
-COPY package.json ./
-RUN npm install -g pnpm && pnpm install
+
+RUN npm install -g pnpm
+
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
 COPY . .
+RUN pnpm build
+
 EXPOSE 3001
-CMD ["pnpm","dev"]
+CMD ["pnpm", "start"]

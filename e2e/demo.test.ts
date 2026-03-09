@@ -41,12 +41,15 @@ async function joinLobbyWithCode(page: Page, code: string) {
 			response.status() === 200
 	);
 	await page.locator('#multi-code').fill(code);
-	await page.getByRole('button', { name: 'Liity peliin' }).nth(1).click();
+	await page.getByTestId('join-lobby-submit').click();
 	await joinResponse;
 }
 
 function characterToggle(page: Page, character: string) {
-	return page.locator('button').filter({ has: page.getByText(character, { exact: true }) }).first();
+	return page
+		.locator('button')
+		.filter({ has: page.getByText(character, { exact: true }) })
+		.first();
 }
 
 test('can switch between single and multiplayer setup modes', async ({ page }) => {
@@ -65,7 +68,7 @@ test('join flow asks for code only after selecting join mode', async ({ page }) 
 	await page.getByRole('button', { name: 'Liity peliin' }).click();
 	await expect(page.locator('#multi-code')).toBeVisible();
 	await page.locator('#multi-code').fill('abc');
-	await page.getByRole('button', { name: 'Liity peliin' }).nth(1).click();
+	await page.getByTestId('join-lobby-submit').click();
 	await expect(page.getByText('Koodin tulee olla 6 merkkiä pitkä')).toBeVisible();
 });
 
@@ -100,9 +103,7 @@ test('multiplayer enforces unique character selection across sessions', async ({
 	await guestContext.close();
 });
 
-test('keeps deterministic multiplayer turns synchronized on both screens', async ({
-	browser
-}) => {
+test('keeps deterministic multiplayer turns synchronized on both screens', async ({ browser }) => {
 	test.setTimeout(90_000);
 
 	const hostContext = await browser.newContext();
@@ -145,13 +146,12 @@ test('keeps deterministic multiplayer turns synchronized on both screens', async
 	expect(hostPlayerId).toBeTruthy();
 	expect(guestPlayerId).toBeTruthy();
 
-		for (let i = 0; i < 90; i++) {
+	for (let i = 0; i < 90; i++) {
 		const previous = await getExposedState(hostPage);
 		const actorPage = previous.currentTurnPlayerId === guestPlayerId ? guestPage : hostPage;
 		await actorPage.evaluate(() => {
 			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
 		});
-
 
 		const hostState = await getExposedState(hostPage);
 		await expect
@@ -159,12 +159,14 @@ test('keeps deterministic multiplayer turns synchronized on both screens', async
 				async () => {
 					const nextHostState = await getExposedState(hostPage);
 					const nextGuestState = await getExposedState(guestPage);
-					return JSON.stringify(nextGuestState.players.map((p) => p.position)) === JSON.stringify(nextHostState.players.map((p) => p.position));
+					return (
+						JSON.stringify(nextGuestState.players.map((p) => p.position)) ===
+						JSON.stringify(nextHostState.players.map((p) => p.position))
+					);
 				},
 				{ timeout: 6_000 }
 			)
 			.toBe(true);
-		const guestState = await getExposedState(guestPage);
 		if (hostState.players.every((player) => player.position >= 55)) {
 			break;
 		}
@@ -172,7 +174,9 @@ test('keeps deterministic multiplayer turns synchronized on both screens', async
 
 	const finalHostState = await getExposedState(hostPage);
 	const finalGuestState = await getExposedState(guestPage);
-	expect(finalGuestState.players.map((p) => p.position)).toEqual(finalHostState.players.map((p) => p.position));
+	expect(finalGuestState.players.map((p) => p.position)).toEqual(
+		finalHostState.players.map((p) => p.position)
+	);
 
 	await hostContext.close();
 	await guestContext.close();
@@ -217,7 +221,10 @@ test('keeps multiplayer movement synchronized with random dice throws', async ({
 	let movesChecked = 0;
 	for (let i = 0; i < 18; i++) {
 		const before = await getExposedState(hostPage);
-		const actorPage = before.currentTurnPlayerId === before.players.find((p) => p.name === 'Guest')?.id ? guestPage : hostPage;
+		const actorPage =
+			before.currentTurnPlayerId === before.players.find((p) => p.name === 'Guest')?.id
+				? guestPage
+				: hostPage;
 		await actorPage.evaluate(() => {
 			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
 		});
@@ -227,7 +234,10 @@ test('keeps multiplayer movement synchronized with random dice throws', async ({
 				async () => {
 					const hs = await getExposedState(hostPage);
 					const gs = await getExposedState(guestPage);
-					return JSON.stringify(hs.players.map((p) => p.position)) === JSON.stringify(gs.players.map((p) => p.position));
+					return (
+						JSON.stringify(hs.players.map((p) => p.position)) ===
+						JSON.stringify(gs.players.map((p) => p.position))
+					);
 				},
 				{ timeout: 8_000 }
 			)
