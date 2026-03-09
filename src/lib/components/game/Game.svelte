@@ -45,7 +45,20 @@
 	let overlayButtonText: string | null = $state(null);
 	let currentTile: Tile<any, any> | null = $state(null);
 
-	$gameState.currentTurnPlayerId = $gameState.players[0].id;
+	$effect(() => {
+		if ($gameState.players.length === 0) {
+			$gameState.currentTurnPlayerId = null;
+			return;
+		}
+
+		const currentPlayerExists = $gameState.players.some(
+			(player) => player.id === $gameState.currentTurnPlayerId
+		);
+
+		if (!currentPlayerExists) {
+			$gameState.currentTurnPlayerId = $gameState.players[0].id;
+		}
+	});
 
 	let currentPlayer = derived(
 		gameState,

@@ -116,7 +116,7 @@
 <form class="flex flex-col space-y-6" use:enhance>
 	<Fieldset {form} name="players">
 		<Legend class="text-lg">Pelaajat</Legend>
-		{#each $formData.players as _, i}
+		{#each $formData.players as player, i (player.id ?? i)}
 			<ElementField {form} name={`players[${i}].name`}>
 				<Form.Control>
 					{#snippet children({ props })}
