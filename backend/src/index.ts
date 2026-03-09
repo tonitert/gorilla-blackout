@@ -38,11 +38,21 @@ const createInitialGameState = (lobby: Lobby) => ({
 	players: lobby.players,
 	turn: 0,
 	currentTurnPlayerId: lobby.players[0]?.id ?? null,
+	turnInProgress: false,
+	turnOwnerId: null,
+	phase: 'idle',
+	activeTilePosition: null,
+	diceValue: null,
 	inGame: true,
 	spacebarTooltipShown: false,
 	version: 1,
 	versionAvailable: null
 });
+
+function hasDuplicateImage(lobby: Lobby, playerId: string, image: string): boolean {
+	if (image === 'default') return false;
+	return lobby.players.some((player) => player.id !== playerId && player.image === image);
+}
 
 app.post('/api/lobbies', async (request, reply) => {
 	const parsed = playerSchema.safeParse(request.body);
@@ -66,11 +76,49 @@ app.post<{ Params: { code: string } }>('/api/lobbies/:code/join', async (request
 	const lobby = lobbies.get(code);
 	if (!lobby) return reply.code(404).send({ error: 'Lobby not found' });
 	if (lobby.inGame) return reply.code(409).send({ error: 'Game already started' });
+	if (hasDuplicateImage(lobby, '', parsed.data.image)) {
+		return reply.code(409).send({ error: 'Character already selected' });
+	}
 	const player: Player = { ...parsed.data, id: randomUUID(), position: 0 };
 	lobby.players.push(player);
 	io.to(code).emit('lobby:update', publicLobby(lobby));
 	return { code, playerId: player.id, lobby: publicLobby(lobby) };
 });
+
+app.post<{ Params: { code: string }; Body: { playerId?: string; name?: string; image?: string } }>(
+	'/api/lobbies/:code/player',
+	async (request, reply) => {
+		const code = request.params.code.toUpperCase();
+		const lobby = lobbies.get(code);
+		if (!lobby) return reply.code(404).send({ error: 'Lobby not found' });
+		if (lobby.inGame) return reply.code(409).send({ error: 'Game already started' });
+		const playerId = request.body?.playerId;
+		if (!playerId) return reply.code(400).send({ error: 'playerId required' });
+
+		const player = lobby.players.find((p) => p.id === playerId);
+		if (!player) return reply.code(404).send({ error: 'Player not found' });
+
+		if (request.body.name !== undefined) {
+			const name = request.body.name.trim();
+			if (name.length < 1 || name.length > 100) {
+				return reply.code(400).send({ error: 'Invalid name' });
+			}
+			player.name = name;
+		}
+
+		if (request.body.image !== undefined) {
+			const image = request.body.image.trim();
+			if (!image) return reply.code(400).send({ error: 'Invalid image' });
+			if (hasDuplicateImage(lobby, player.id, image)) {
+				return reply.code(409).send({ error: 'Character already selected' });
+			}
+			player.image = image;
+		}
+
+		io.to(code).emit('lobby:update', publicLobby(lobby));
+		return { lobby: publicLobby(lobby) };
+	}
+);
 
 app.get<{ Params: { code: string } }>('/api/lobbies/:code', async (request, reply) => {
 	const lobby = lobbies.get(request.params.code.toUpperCase());
@@ -121,8 +169,27 @@ io.on('connection', (socket) => {
 		io.to(code).emit('game:state', lobby.state);
 	});
 
-	socket.on('game:state:update', (nextState) => {
+	socket.on('game:state:update', (payload) => {
 		if (!lobby.inGame) return;
+		if (!payload) return;
+		const nextState = (payload as { state?: unknown }).state ?? payload;
+		if (typeof nextState !== 'object' || nextState === null) return;
+		if ((payload as { actorId?: string }).actorId && (payload as { actorId?: string }).actorId !== playerId) {
+			return;
+		}
+
+		const previous = (lobby.state ?? {}) as {
+			currentTurnPlayerId?: string | null;
+			turnInProgress?: boolean;
+			turnOwnerId?: string | null;
+		};
+		const allowedActor = previous.turnInProgress
+			? previous.turnOwnerId
+			: previous.currentTurnPlayerId;
+		if (allowedActor && allowedActor !== playerId) {
+			return;
+		}
+
 		lobby.state = nextState;
 		io.to(code).emit('game:state', nextState);
 	});

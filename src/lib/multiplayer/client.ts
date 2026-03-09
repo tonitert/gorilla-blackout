@@ -70,6 +70,16 @@ export async function joinLobby(code: string, name: string, image: string) {
 	connect();
 }
 
+export async function updateLobbyPlayer(data: { name?: string; image?: string }) {
+	const session = get(multiplayerStore);
+	if (!session.code || !session.playerId) return;
+	const payload = await post<{ lobby: Lobby }>(`/api/lobbies/${session.code}/player`, {
+		playerId: session.playerId,
+		...data
+	});
+	multiplayerStore.update((state) => ({ ...state, lobby: payload.lobby }));
+}
+
 function connect() {
 	const session = get(multiplayerStore);
 	if (!session.code || !session.playerId) return;
@@ -99,7 +109,10 @@ export function enableMultiplayerSync() {
 	return gameStateStore.subscribe((state) => {
 		const session = get(multiplayerStore);
 		if (session.mode !== 'multi' || !session.code || suppressSync || !state.inGame) return;
-		socket?.emit('game:state:update', structuredClone(state));
+		socket?.emit('game:state:update', {
+			actorId: session.playerId,
+			state: structuredClone(state)
+		});
 	});
 }
 

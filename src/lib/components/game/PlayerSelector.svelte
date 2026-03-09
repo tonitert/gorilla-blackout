@@ -57,6 +57,7 @@
 	const {
 		onSubmit,
 		players = [],
+		lockedPlayerIds = [],
 		onPlayerRemove = () => {},
 		onPlayerAdd,
 		submitText = 'Aloita peli',
@@ -64,6 +65,7 @@
 	}: {
 		onSubmit: (players: PlayerList) => void;
 		players?: PlayerList;
+		lockedPlayerIds?: string[];
 		onPlayerRemove?: (index: number) => void;
 		onPlayerAdd?: (player: Player) => Player;
 		submitText?: string;
@@ -111,23 +113,38 @@
 	if (players.length > 0) {
 		$formData.players = players;
 	}
+
+	$effect(() => {
+		selectedImages = new SvelteSet(
+			$formData.players
+				.map((player) => player.image)
+				.filter((image) => image !== 'default')
+		);
+	});
 </script>
 
 <form class="flex flex-col space-y-6" use:enhance>
 	<Fieldset {form} name="players">
 		<Legend class="text-lg">Pelaajat</Legend>
 		{#each $formData.players as _, i}
+			{@const playerId = $formData.players[i].id}
+			{@const isLocked = !!playerId && lockedPlayerIds.includes(playerId)}
 			<ElementField {form} name={`players[${i}].name`}>
 				<Form.Control>
 					{#snippet children({ props })}
 						<div class="mt-5 flex items-end">
 							<div class="mr-2 grow-1">
 								<Form.Label class="">Nimi</Form.Label>
-								<Input class="mt-2" {...props} bind:value={$formData.players[i].name} />
+								<Input
+									class="mt-2"
+									{...props}
+									disabled={isLocked}
+									bind:value={$formData.players[i].name}
+								/>
 							</div>
 							<Form.Button
 								type="button"
-								disabled={$formData.players.length <= minPlayers}
+								disabled={$formData.players.length <= minPlayers || isLocked}
 								onclick={() => removePlayerByIndex(i)}
 							>
 								Poista
@@ -163,6 +180,7 @@
 									<Toggle
 										class="flex h-[unset] w-full flex-col items-center justify-center p-3"
 										pressed={$formData.players[i].image === 'default'}
+										disabled={isLocked}
 										onclick={(e) => {
 											selectedImages.delete($formData.players[i].image);
 											$formData.players[i].image = 'default';
@@ -174,7 +192,10 @@
 									{#each Object.entries(playerImages) as [name, image]}
 										<Toggle
 											class="flex h-[unset] w-full flex-col items-center justify-center p-3"
-											disabled={selectedImages.has(name) && $formData.players[i].image !== name}
+											disabled={
+												isLocked ||
+												(selectedImages.has(name) && $formData.players[i].image !== name)
+											}
 											pressed={$formData.players[i].image === name}
 											onclick={(e) => {
 												selectedImages.delete($formData.players[i].image);

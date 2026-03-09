@@ -64,7 +64,7 @@
 		>
 		<Button
 			variant={$multiplayerStore.mode === 'multi' ? 'default' : 'outline'}
-			onclick={() => setMode('multi')}>Moni laite</Button
+			onclick={() => setMode('multi')}>Moninpeli</Button
 		>
 	</div>
 
