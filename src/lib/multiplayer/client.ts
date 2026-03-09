@@ -30,6 +30,7 @@ export const serverDiceRollStore = writable<number | null>(null);
 
 let socket: Socket | null = null;
 let suppressSync = false;
+let previousBroadcastPhase: GameState['phase'] | null = null;
 
 async function post<T>(path: string, body: unknown): Promise<T> {
 	const response = await fetch(`${backendUrl}${path}`, {
@@ -45,6 +46,7 @@ function disconnectAndResetSession(mode: GameMode = 'single') {
 	socket?.disconnect();
 	socket = null;
 	suppressSync = false;
+	previousBroadcastPhase = null;
 	serverDiceRollStore.set(null);
 	multiplayerStore.set({ ...defaultSession, mode });
 }
@@ -100,10 +102,14 @@ function connect() {
 		multiplayerStore.update((state) => ({ ...state, lobby }));
 	});
 	socket.on('game:state', (state: GameState) => {
+		const enteringRollingPhase =
+			state.phase === 'rolling' && state.diceValue === null && previousBroadcastPhase !== 'rolling';
+
+		previousBroadcastPhase = state.phase;
 		suppressSync = true;
 		gameStateStore.set(state);
 		suppressSync = false;
-		if (state.phase === 'rolling' && state.diceValue === null) {
+		if (enteringRollingPhase) {
 			serverDiceRollStore.set(null);
 		}
 	});

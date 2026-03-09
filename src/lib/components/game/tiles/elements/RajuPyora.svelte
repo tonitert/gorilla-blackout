@@ -8,7 +8,7 @@
 	import wheelImage from '$lib/assets/rajupyora.png';
 	import MoveToStart from './raju/MoveToStart.svelte';
 
-	const { players, setActionButtonText, movePlayer, currentPlayerIndex, positions }: ElementProps =
+	const { players, setActionButtonText, movePlayer, currentPlayerIndex, positions, tileState, setTileState, canAct }: ElementProps =
 		$props();
 
 	let spinnerInstance: SvelteComponent | undefined = $state(undefined);
@@ -35,7 +35,7 @@
 			options: [new SpinnerOption('Ota 3 shottia!'), new SpinnerOption('Jaa 3 shottia!')],
 			spinsBeforeStop: 6,
 			spinnerImage: wheel5050,
-
+			depth: 1,
 			setActionButtonText: setActionButtonText
 		}),
 		{
@@ -78,6 +78,10 @@
 	animationDuration={15000}
 	{players}
 	{setActionButtonText}
+	{tileState}
+	{setTileState}
+	{canAct}
+	depth={0}
 	bind:this={spinnerInstance}
 	topOffset={6}
 />

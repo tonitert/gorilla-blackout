@@ -1,14 +1,16 @@
 FROM node:22-alpine3.22 AS builder
 
-COPY . /app
-
 WORKDIR /app
 
 RUN npm install -g pnpm
 
-RUN pnpm install --frozen-lockfile && \
-    pnpm run build
+COPY package.json pnpm-lock.yaml ./
 
+RUN pnpm install --frozen-lockfile
+
+COPY . /app
+
+RUN pnpm run build
 
 FROM nginx:1.29.1-alpine3.22-perl
 

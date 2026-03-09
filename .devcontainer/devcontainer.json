@@ -1,0 +1,48 @@
+{
+	"name": "Gorilla Blackout",
+	"build": {
+		"dockerfile": "Dockerfile",
+		"context": "..",
+		"args": {
+			"NODE_VARIANT": "22-bookworm"
+		}
+	},
+	"remoteUser": "node",
+	"workspaceFolder": "/workspaces/gorilla-blackout",
+	"runArgs": ["--init", "--ipc=host"],
+	"containerEnv": {
+		"PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright"
+	},
+	"mounts": [
+		"source=gorilla-blackout-pnpm-store,target=/home/node/.local/share/pnpm/store,type=volume"
+	],
+	"forwardPorts": [5173, 4173, 3001],
+	"portsAttributes": {
+		"5173": {
+			"label": "Vite dev server",
+			"onAutoForward": "notify"
+		},
+		"4173": {
+			"label": "Vite preview",
+			"onAutoForward": "silent"
+		},
+		"3001": {
+			"label": "Multiplayer backend",
+			"onAutoForward": "silent"
+		}
+	},
+	"postCreateCommand": "bash .devcontainer/post-create.sh",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"esbenp.prettier-vscode",
+				"dbaeumer.vscode-eslint",
+				"svelte.svelte-vscode",
+				"ms-playwright.playwright"
+			],
+			"settings": {
+				"terminal.integrated.defaultProfile.linux": "bash"
+			}
+		}
+	}
+}

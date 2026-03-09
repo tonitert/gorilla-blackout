@@ -12,6 +12,7 @@ export interface GameState {
 	phase: 'idle' | 'rolling' | 'tile';
 	activeTilePosition: number | null;
 	diceValue: number | null;
+	tileState: Record<string, unknown> | null;
 	inGame: boolean;
 	spacebarTooltipShown: boolean;
 	version: number;
@@ -32,6 +33,7 @@ const initialGameState: GameState = {
 	phase: 'idle',
 	activeTilePosition: null,
 	diceValue: null,
+	tileState: null,
 	inGame: false,
 	spacebarTooltipShown: false,
 	...constantAttributes

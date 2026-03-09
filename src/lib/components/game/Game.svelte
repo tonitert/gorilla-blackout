@@ -178,6 +178,18 @@
 		if (!canLocalPlayerAct) {
 			return;
 		}
+		if ($gameState.phase !== 'rolling' || !$gameState.turnInProgress) {
+			return;
+		}
+		if (
+			$multiplayerStore.mode === 'multi' &&
+			$gameState.turnOwnerId !== $multiplayerStore.playerId
+		) {
+			return;
+		}
+		if ($gameState.diceValue !== null) {
+			return;
+		}
 
 		const startPos = $currentPlayer.position;
 		const steps = useDeterministicE2EDice ? 6 : results[0];
@@ -203,16 +215,32 @@
 	}
 
 	function showTileForPlayer(player: Player) {
+		overlayButtonText = null;
 		if (e2eMode) {
-			gameState.update((state) => ({ ...state, activeTilePosition: null, phase: 'idle' }));
+			gameState.update((state) => ({
+				...state,
+				activeTilePosition: null,
+				phase: 'idle',
+				tileState: null
+			}));
 			endTurn();
 			return;
 		}
 		const pos = player.position;
 		if (tiles.hasOwnProperty(pos)) {
-			gameState.update((state) => ({ ...state, activeTilePosition: pos, phase: 'tile' }));
+			gameState.update((state) => ({
+				...state,
+				activeTilePosition: pos,
+				phase: 'tile',
+				tileState: null
+			}));
 		} else {
-			gameState.update((state) => ({ ...state, activeTilePosition: null, phase: 'idle' }));
+			gameState.update((state) => ({
+				...state,
+				activeTilePosition: null,
+				phase: 'idle',
+				tileState: null
+			}));
 			endTurn();
 		}
 	}
@@ -225,6 +253,14 @@
 			setActionButtonText: (text: string | null) => {
 				overlayButtonText = text;
 			},
+			tileState: $gameState.tileState,
+			setTileState: (updater) => {
+				gameState.update((state) => ({
+					...state,
+					tileState: updater(state.tileState ?? {})
+				}));
+			},
+			canAct: canLocalPlayerAct,
 			movePlayer: (offset: number, index: number, triggerTile?: boolean) => {
 				let movedPlayer: Player | undefined;
 				gameState.update((state) => {
@@ -245,6 +281,7 @@
 	}
 
 	function endTurn() {
+		overlayButtonText = null;
 		gameState.update((state) => ({
 			...state,
 			turn: state.turn + 1,
@@ -253,7 +290,8 @@
 			turnOwnerId: null,
 			phase: 'idle',
 			activeTilePosition: null,
-			diceValue: null
+			diceValue: null,
+			tileState: null
 		}));
 	}
 

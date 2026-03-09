@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { wait, getRandomInt } from '$lib/helpers/wait';
+	import { runDiceAnimation } from './diceAnimation';
 
 	import dice1 from '$lib/assets/dice/1.svg';
 	import dice2 from '$lib/assets/dice/2.svg';
@@ -29,6 +30,11 @@
 	const images = [dice1, dice2, dice3, dice4, dice5, dice6];
 	let diceNumbers = $state(Array(dieCount).fill(0));
 	let rolling = false;
+	let cancelled = false;
+
+	onDestroy(() => {
+		cancelled = true;
+	});
 
 	onMount(async () => {
 		if (rolling) {
@@ -36,20 +42,20 @@
 		} else {
 			rolling = true;
 		}
-		diceNumbers = Array(dieCount).fill(0);
-		for (let i = 0; i < changesBeforeSettle; i++) {
-			await wait(timeBetweenChanges);
-			diceNumbers = diceNumbers.map(() => getRandomInt(0, 6));
-		}
-		await wait(finalWaitTime);
-		const settledResults = riggedResult ?? diceNumbers.map((num) => num + 1);
-		diceNumbers = settledResults.map((num) => Math.min(6, Math.max(1, num)) - 1);
-		await wait(800);
-		if (riggedResult) {
-			result(settledResults);
-		} else {
-			result(settledResults);
-		}
+		await runDiceAnimation({
+			dieCount,
+			timeBetweenChanges,
+			changesBeforeSettle,
+			finalWaitTime,
+			riggedResult,
+			wait,
+			getRandomInt,
+			onFrame: (nextDiceNumbers) => {
+				diceNumbers = nextDiceNumbers;
+			},
+			onResult: result,
+			shouldContinue: () => !cancelled
+		});
 	});
 </script>
 
