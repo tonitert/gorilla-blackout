@@ -65,19 +65,25 @@
 		}
 	}
 
-	async function onSavePlayer() {
+	async function onSaveImage(image: PlayerImage) {
+		try {
+			error = '';
+			await updateLobbyPlayer({ image });
+		} catch {
+			error = 'Hahmon tallennus epäonnistui (hahmo voi olla jo valittu)';
+		}
+	}
+
+	async function onSaveName() {
 		if (!localName.trim()) {
 			error = 'Nimi on pakollinen';
 			return;
 		}
 		try {
 			error = '';
-			await updateLobbyPlayer({
-				name: localName,
-				image: localImage
-			});
+			await updateLobbyPlayer({ name: localName });
 		} catch {
-			error = 'Hahmon tallennus epäonnistui (hahmo voi olla jo valittu)';
+			error = 'Nimen tallennus epäonnistui';
 		}
 	}
 </script>
@@ -117,7 +123,7 @@
 
 			<div class="mt-3 rounded border border-gray-500 p-3">
 				<label for="multi-name">Nimi</label>
-				<Input id="multi-name" class="mt-2" bind:value={localName} />
+				<Input id="multi-name" class="mt-2" bind:value={localName} onblur={onSaveName} />
 
 				<Collapsible.Root class="mt-5">
 					<Collapsible.Trigger
@@ -140,6 +146,7 @@
 								pressed={localImage === 'default'}
 								onclick={(e) => {
 									localImage = 'default';
+									onSaveImage('default');
 									e.preventDefault();
 								}}
 							>
@@ -151,8 +158,9 @@
 									disabled={usedImages.has(name)}
 									pressed={localImage === name}
 									onclick={(e) => {
-										localImage = name as PlayerImage;
-										e.preventDefault();
+									localImage = name as PlayerImage;
+									onSaveImage(name as PlayerImage);
+									e.preventDefault();
 									}}
 								>
 									<img src={image} alt={name} class="h-16 w-16 object-contain" />
@@ -162,8 +170,6 @@
 						</div>
 					</Collapsible.Content>
 				</Collapsible.Root>
-
-				<Button class="mt-4" onclick={onSavePlayer}>Tallenna pelaaja</Button>
 			</div>
 
 			<ul class="mt-4 space-y-1">
@@ -190,6 +196,8 @@
 						disabled={$multiplayerStore.lobby.players.length < 2}>Aloita moninpeli</Button
 					>
 				</div>
+			{:else if !$multiplayerStore.isHost && !$multiplayerStore.lobby.inGame}
+				<p class="mt-6 text-center text-gray-400">Odotetaan pelin alkamista..</p>
 			{/if}
 			{#if $multiplayerStore.lobby.inGame}
 				<div class="mt-4">

@@ -41,6 +41,11 @@
 					inGame: true
 				}));
 			};
+			(
+				window as Window & { __GB_INJECT_STATE__?: (partial: Partial<GameState>) => void }
+			).__GB_INJECT_STATE__ = (partial) => {
+				gameState.update((state) => ({ ...state, ...partial }));
+			};
 
 			cleanupE2E = () => {
 				unsubscribeState();
@@ -48,6 +53,9 @@
 				delete (window as Window & { __GB_STATE__?: GameState }).__GB_STATE__;
 				delete (window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__;
 				delete (window as Window & { __GB_ROLL__?: number | null }).__GB_ROLL__;
+				delete (
+					window as Window & { __GB_INJECT_STATE__?: unknown }
+				).__GB_INJECT_STATE__;
 			};
 		}
 

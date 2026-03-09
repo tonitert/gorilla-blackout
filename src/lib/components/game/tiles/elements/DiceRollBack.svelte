@@ -12,14 +12,29 @@
 		multiplier = 1,
 		movePlayer,
 		currentPlayerIndex,
-		setActionButtonText
+		setActionButtonText,
+		tileState,
+		setTileState,
+		canAct = true
 	}: DiceRollBackProps = $props();
 
 	setActionButtonText?.('Heitä noppaa');
 
+	// Non-acting player: mirror stage from tileState
+	$effect(() => {
+		if (canAct) return;
+		const remoteStage = tileState?.['dice_stage'] as string | undefined;
+		if (remoteStage === 'rolling' && stage !== 'rolling') {
+			stage = 'rolling';
+			setActionButtonText?.('Pyöritetään..');
+		}
+	});
+
 	export function onActionButtonClick() {
+		if (!canAct) return;
 		if (stage === 'waitingForRoll') {
 			stage = 'rolling';
+			setTileState?.((prev) => ({ ...prev, dice_stage: 'rolling' }));
 			setActionButtonText?.('Pyöritetään..');
 		}
 	}
@@ -28,6 +43,7 @@
 {#if stage === 'rolling'}
 	<Dice
 		result={(results) => {
+			if (!canAct) return;
 			setActionButtonText?.(null);
 			movePlayer(-results[0] * multiplier, currentPlayerIndex);
 		}}

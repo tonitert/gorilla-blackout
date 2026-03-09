@@ -19,7 +19,8 @@
 		spinnerImage: string = '';
 		animationDuration?: number = 0;
 		topOffset?: number = 0;
-		riggedRandom?: number = 0;
+		riggedRandom?: number = undefined;
+		depth?: number = 0;
 	}
 </script>
 
@@ -39,8 +40,15 @@
 		spinnerImage,
 		animationDuration = 15000,
 		topOffset = 0,
-		riggedRandom = undefined
+		riggedRandom = undefined,
+		tileState,
+		setTileState,
+		canAct = true,
+		depth = 0
 	}: SpinnerProps = $props();
+
+	const stageKey = `spin_${depth}_stage`;
+	const resultKey = `spin_${depth}_result`;
 
 	const waitBeforeAnimation = 2000;
 	let stage = $state<
@@ -51,44 +59,72 @@
 		| 'spinning'
 		| 'result'
 	>('starting');
-	let paused = $derived(stage !== 'animationPlaying');
 	let video: HTMLVideoElement | null = $state(null);
 	let spinDegrees = $state(0);
 	let chosen = $state(0);
 	let addedElementInstance = $state<{ onActionButtonClick?: () => void } | undefined>(undefined);
 
-	onMount(async () => {
-		setActionButtonText?.('Odota..');
-		if (stage !== 'starting') {
-			return;
-		}
-		// getRandomNumber should produce a float in [0, wheelOptions)
-		let spinFloat = riggedRandom !== undefined ? riggedRandom : getRandomNumber(0, wheelOptions);
-		// guard against rare case of returning the exact max
+	const wheelOptions = options.length;
+
+	function applySpinFloat(spinFloat: number) {
 		if (spinFloat >= wheelOptions) spinFloat = wheelOptions - Number.EPSILON;
-
-		// chosen index is the integer segment
 		chosen = Math.floor(spinFloat);
-
-		// compute degrees from fractional position around the wheel
 		const fraction = spinFloat / wheelOptions;
 		spinDegrees = 360 * spinsBeforeStop + fraction * 360;
+	}
+
+	onMount(async () => {
+		if (!canAct) return; // non-acting players are driven by $effect
+
+		setActionButtonText?.('Odota..');
+		let spinFloat = riggedRandom !== undefined ? riggedRandom : getRandomNumber(0, wheelOptions);
+		if (spinFloat >= wheelOptions) spinFloat = wheelOptions - Number.EPSILON;
+		applySpinFloat(spinFloat);
+
+		// Publish the random result so all players spin to the same result
+		setTileState?.((prev) => ({ ...prev, [resultKey]: spinFloat }));
 
 		if (!animation) {
 			stage = 'waitingForSpin';
+			setTileState?.((prev) => ({ ...prev, [stageKey]: 'waitingForSpin' }));
 			setActionButtonText?.('Pyöräytä pyörää');
 		} else {
 			stage = 'waitingForAnimation';
+			setTileState?.((prev) => ({ ...prev, [stageKey]: 'waitingForAnimation' }));
 			await wait(waitBeforeAnimation);
 			stage = 'animationPlaying';
+			setTileState?.((prev) => ({ ...prev, [stageKey]: 'animationPlaying' }));
 		}
 	});
 
-	const wheelOptions = options.length;
+	// Non-acting player: mirror acting player's result and stage from tileState
+	$effect(() => {
+		if (canAct) return;
+
+		const remoteResult = tileState?.[resultKey];
+		const remoteStage = tileState?.[stageKey] as string | undefined;
+
+		if (typeof remoteResult === 'number' && spinDegrees === 0) {
+			applySpinFloat(remoteResult);
+		}
+
+		if (remoteStage && remoteStage !== stage) {
+			stage = remoteStage as typeof stage;
+			if (remoteStage === 'waitingForSpin') {
+				setActionButtonText?.('Pyöräytä pyörää');
+			} else if (remoteStage === 'result') {
+				setActionButtonText?.(null);
+			} else {
+				setActionButtonText?.('Odota..');
+			}
+		}
+	});
 
 	export function onActionButtonClick() {
+		if (!canAct) return;
 		if (stage === 'waitingForSpin') {
 			stage = 'spinning';
+			setTileState?.((prev) => ({ ...prev, [stageKey]: 'spinning' }));
 		}
 		addedElementInstance?.onActionButtonClick?.();
 	}
@@ -107,11 +143,15 @@
 			bind:this={video}
 			class="w-full"
 			onended={() => {
+				if (!canAct) return;
 				stage = 'waitingForSpin';
+				setTileState?.((prev) => ({ ...prev, [stageKey]: 'waitingForSpin' }));
 				setActionButtonText?.('Pyöräytä pyörää');
 			}}
 			onerror={() => {
+				if (!canAct) return;
 				stage = 'waitingForSpin';
+				setTileState?.((prev) => ({ ...prev, [stageKey]: 'waitingForSpin' }));
 				setActionButtonText?.('Pyöräytä pyörää');
 			}}
 		>
@@ -123,8 +163,9 @@
 {#if stage === 'animationPlaying'}
 	{(() => {
 		setTimeout(() => {
-			if (stage === 'animationPlaying') {
+			if (stage === 'animationPlaying' && canAct) {
 				stage = 'waitingForSpin';
+				setTileState?.((prev) => ({ ...prev, [stageKey]: 'waitingForSpin' }));
 				setActionButtonText?.('Pyöräytä pyörää');
 			}
 		}, 30000);
@@ -141,7 +182,9 @@
 				: 0}deg);"
 			class="aspect-square h-full w-full bg-contain transition-transform ease-[cubic-bezier(.25,-.01,.07,1)]"
 			ontransitionend={() => {
+				if (!canAct) return;
 				stage = 'result';
+				setTileState?.((prev) => ({ ...prev, [stageKey]: 'result' }));
 				setActionButtonText?.(null);
 			}}
 		></div>
@@ -159,7 +202,7 @@
 		<Overlay
 			message={options[chosen].name}
 			AddedElement={options[chosen].element}
-			customElementProps={options[chosen].props}
+			customElementProps={{ ...options[chosen].props, tileState, setTileState, canAct }}
 			bind:addedElementInstance
 		/>
 	</div>

@@ -2,6 +2,8 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
 	testDir: 'e2e',
+	workers: 4,
+	retries: 1,
 	use: {
 		baseURL: 'http://localhost:4173'
 	},

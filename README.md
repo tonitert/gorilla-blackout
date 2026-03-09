@@ -25,6 +25,26 @@ Install the project dependencies:
 pnpm install
 ```
 
+## Dev Container
+
+The repository includes a Dockerfile-based devcontainer in `.devcontainer/devcontainer.json`.
+
+It provides:
+
+- Node.js 22
+- pnpm 10.31.0
+- OpenAI Codex CLI
+- OpenCode CLI
+- Playwright browser dependencies plus Chromium
+- Automatic `pnpm install` for both the frontend and `backend/`
+
+After opening the repo in the container, run the usual commands:
+
+```bash
+pnpm run dev
+pnpm --dir backend run dev
+```
+
 ## Development
 
 ### Running the Development Server

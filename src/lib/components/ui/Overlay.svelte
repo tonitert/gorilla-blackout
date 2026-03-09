@@ -4,14 +4,21 @@
 
 	let {
 		addedElementInstance = $bindable(),
-		...props
+		AddedElement,
+		customElementProps,
+		message
 	}: {
 		AddedElement?: Component<any, { onActionButtonClick?: () => void }>;
 		customElementProps?: Record<string, any>;
 		message?: string;
 		addedElementInstance?: { onActionButtonClick?: () => void };
 	} = $props();
-	const { AddedElement, customElementProps, message } = props;
+
+	const nonActingTileStateKey = $derived.by(() =>
+		customElementProps?.canAct === false
+			? JSON.stringify(customElementProps?.tileState ?? null)
+			: null
+	);
 </script>
 
 <div
@@ -22,6 +29,12 @@
 		<p class="mt-5 text-2xl text-white">{message}</p>
 	{/if}
 	{#if AddedElement}
-		<AddedElement {...customElementProps} bind:this={addedElementInstance} />
+		{#if nonActingTileStateKey !== null}
+			{#key nonActingTileStateKey}
+				<AddedElement {...customElementProps} bind:this={addedElementInstance} />
+			{/key}
+		{:else}
+			<AddedElement {...customElementProps} bind:this={addedElementInstance} />
+		{/if}
 	{/if}
 </div>
