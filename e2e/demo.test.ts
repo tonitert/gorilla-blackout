@@ -72,6 +72,20 @@ test('join flow asks for code only after selecting join mode', async ({ page }) 
 	await expect(page.getByText('Koodin tulee olla 6 merkkiä pitkä')).toBeVisible();
 });
 
+test('does not auto-enter previous game after refresh', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Aloita peli' }).scrollIntoViewIfNeeded();
+	await page.getByLabel('Nimi').nth(0).fill('Tester 1');
+	await page.getByLabel('Nimi').nth(1).fill('Tester 2');
+	await page.getByRole('button', { name: 'Aloita peli' }).click();
+	await expect(page.locator('.game')).toBeVisible();
+
+	await page.reload();
+
+	await expect(page.locator('.game')).toHaveCount(0);
+	await expect(page.getByText('Aikaisempi peli löytyi. Haluatko jatkaa?')).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Aloita peli' })).toBeVisible();
+});
 test('multiplayer enforces unique character selection across sessions', async ({ browser }) => {
 	const hostContext = await browser.newContext();
 	const guestContext = await browser.newContext();
