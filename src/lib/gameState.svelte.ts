@@ -84,8 +84,6 @@ export async function tryLoadData(): Promise<GameState | undefined> {
 			...constantAttributes
 		};
 
-		gameStateStore.set(mergedData);
-
 		return mergedData;
 	} catch (error) {
 		console.error('Failed to load game state from IndexedDB:', error);
