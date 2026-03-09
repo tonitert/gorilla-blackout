@@ -256,6 +256,17 @@
 			nextTurn();
 		}
 	}
+
+	$effect(() => {
+		if (!e2eMode || typeof window === 'undefined') return;
+		const target = window as Window & { __GB_NEXT__?: () => void };
+		target.__GB_NEXT__ = () => {
+			handleNextTurnButtonClick();
+		};
+		return () => {
+			delete target.__GB_NEXT__;
+		};
+	});
 </script>
 
 <section style="height: 100vh; height: 100svh;" class="flex w-full flex-col items-start pb-2">
@@ -296,9 +307,9 @@
 				<Dice
 					result={onDiceRolled}
 					riggedResult={e2eMode ? [6] : undefined}
-					timeBetweenChanges={e2eMode ? 1 : 70}
-					changesBeforeSettle={e2eMode ? 1 : 9}
-					finalWaitTime={e2eMode ? 10 : 2000}
+					timeBetweenChanges={e2eMode ? 30 : 70}
+					changesBeforeSettle={e2eMode ? 3 : 9}
+					finalWaitTime={e2eMode ? 250 : 2000}
 				/>
 			{/if}
 			{#if currentTile !== null}
