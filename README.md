@@ -38,6 +38,8 @@ It provides:
 - Playwright browser dependencies plus Chromium
 - Automatic `pnpm install` for both the frontend and `backend/`
 
+The container runs as `root` so package installs can write to Docker bind mounts reliably.
+
 After opening the repo in the container, run the usual commands:
 
 ```bash

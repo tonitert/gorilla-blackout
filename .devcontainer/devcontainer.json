@@ -7,14 +7,14 @@
 			"NODE_VARIANT": "22-bookworm"
 		}
 	},
-	"remoteUser": "node",
+	"remoteUser": "root",
 	"workspaceFolder": "/workspaces/gorilla-blackout",
 	"runArgs": ["--init", "--ipc=host"],
 	"containerEnv": {
 		"PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright"
 	},
 	"mounts": [
-		"source=gorilla-blackout-pnpm-store,target=/home/node/.local/share/pnpm/store,type=volume"
+		"source=gorilla-blackout-pnpm-store,target=/pnpm/store,type=volume"
 	],
 	"forwardPorts": [5173, 4173, 3001],
 	"portsAttributes": {
