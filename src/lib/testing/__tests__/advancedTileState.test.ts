@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+	areDiceRollsEqual,
 	getDiceTileButtonText,
+	normalizeDiceRolls,
 	getSpinResult,
 	getSpinnerButtonText,
 	isValidTargetIndex
@@ -18,6 +20,7 @@ describe('advancedTileState', () => {
 	it('maps dice tile stages to the correct button labels', () => {
 		assert.equal(getDiceTileButtonText('waitingForRoll'), 'Heitä noppaa');
 		assert.equal(getDiceTileButtonText('rolling'), 'Pyöritetään..');
+		assert.equal(getDiceTileButtonText('resolved'), null);
 	});
 
 	it('clamps spin results to the wheel and returns the matching rotation', () => {
@@ -33,5 +36,12 @@ describe('advancedTileState', () => {
 		assert.equal(isValidTargetIndex(4, 1, 1), false);
 		assert.equal(isValidTargetIndex(4, 1, 5), false);
 		assert.equal(isValidTargetIndex(1, 0, 0), false);
+	});
+
+	it('normalizes dice rolls and compares them safely', () => {
+		assert.deepEqual(normalizeDiceRolls([1, '6'], 2), [1, 6]);
+		assert.equal(normalizeDiceRolls([0], 1), null);
+		assert.equal(areDiceRollsEqual([2, 4], [2, 4]), true);
+		assert.equal(areDiceRollsEqual([2, 4], [2, 5]), false);
 	});
 });
