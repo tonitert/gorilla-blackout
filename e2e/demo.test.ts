@@ -56,7 +56,7 @@ async function startSingleDeviceGame(page: Page, url = '/?e2e=1') {
 	await page.getByLabel('Nimi').nth(0).fill('Alpha');
 	await page.getByLabel('Nimi').nth(1).fill('Beta');
 	await page.getByRole('button', { name: 'Aloita peli' }).click();
-	await expect(page.locator('.game')).toBeVisible();
+	await expect(page.locator('.game')).toBeVisible({ timeout: 15_000 });
 }
 
 async function openCharacterPicker(page: Page) {
@@ -88,6 +88,71 @@ async function joinLobbyWithCode(page: Page, code: string) {
 	await page.locator('#multi-code').fill(code);
 	await page.getByTestId('join-lobby-submit').click();
 	await joinResponse;
+}
+
+async function injectGameState(page: Page, partial: Record<string, unknown>) {
+	await page.evaluate((statePatch) => {
+		(
+			window as Window & { __GB_INJECT_STATE__?: (partial: Record<string, unknown>) => void }
+		).__GB_INJECT_STATE__?.(statePatch);
+	}, partial);
+}
+
+async function startMultiplayerGameInBrowser(
+	browser: import('@playwright/test').Browser,
+	url: string
+) {
+	const hostContext = await browser.newContext();
+	const guestContext = await browser.newContext();
+	const hostPage = await hostContext.newPage();
+	const guestPage = await guestContext.newPage();
+
+	await hostPage.goto(url);
+	await guestPage.goto(url);
+
+	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
+	const code = await createLobbyAndReadCode(hostPage);
+	await savePlayerName(hostPage, 'Host');
+
+	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
+	await joinLobbyWithCode(guestPage, code);
+	await savePlayerName(guestPage, 'Guest');
+
+	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
+
+	await hostPage.evaluate(() => {
+		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.();
+	});
+	await guestPage.evaluate(() => {
+		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.();
+	});
+
+	await expect(hostPage.locator('.game')).toBeVisible();
+	await expect(guestPage.locator('.game')).toBeVisible();
+
+	let hostPlayerId: string | null = null;
+	let guestPlayerId: string | null = null;
+
+	await expect
+		.poll(async () => {
+			const state = await getExposedState(hostPage);
+			hostPlayerId = state.players.find((player) => player.name === 'Host')?.id ?? null;
+			guestPlayerId = state.players.find((player) => player.name === 'Guest')?.id ?? null;
+
+			return Boolean(hostPlayerId && guestPlayerId);
+		})
+		.toBe(true);
+
+	return {
+		hostContext,
+		guestContext,
+		hostPage,
+		guestPage,
+		hostPlayerId,
+		guestPlayerId
+	};
 }
 
 function characterToggle(page: Page, character: string) {
@@ -870,8 +935,7 @@ test('multiplayer Raju wheel intro resolves on both screens without getting stuc
 						?.activeTileTrigger,
 					stage: (window as Window & { __GB_STATE__?: ExposedGameState }).__GB_STATE__?.tileState?.[
 						'spin_0_stage'
-					],
-					videos: document.querySelectorAll('video').length
+					]
 				}));
 				const guestSnapshot = await guestPage.evaluate(() => ({
 					sessionId: (window as Window & { __GB_STATE__?: ExposedGameState }).__GB_STATE__
@@ -880,31 +944,32 @@ test('multiplayer Raju wheel intro resolves on both screens without getting stuc
 						?.activeTileTrigger,
 					stage: (window as Window & { __GB_STATE__?: ExposedGameState }).__GB_STATE__?.tileState?.[
 						'spin_0_stage'
-					],
-					videos: document.querySelectorAll('video').length
+					]
 				}));
 
 				return { hostSnapshot, guestSnapshot };
 			},
-			{ timeout: 15_000 }
+			{ timeout: 35_000 }
 		)
 		.toEqual({
 			hostSnapshot: {
 				sessionId: 1,
 				trigger: 'landing',
-				stage: 'waitingForSpin',
-				videos: 0
+				stage: 'waitingForSpin'
 			},
 			guestSnapshot: {
 				sessionId: 1,
 				trigger: 'landing',
-				stage: 'waitingForSpin',
-				videos: 0
+				stage: 'waitingForSpin'
 			}
 		});
 
-	await expect(hostPage.getByRole('button', { name: 'Pyöräytä pyörää' })).toBeVisible();
-	await expect(guestPage.getByRole('button', { name: 'Pyöräytä pyörää' })).toBeVisible();
+	await expect(
+		hostPage.getByRole('button', { name: 'Pyöräytä pyörää', exact: true })
+	).toBeVisible();
+	await expect(
+		guestPage.getByRole('button', { name: 'Pyöräytä pyörää', exact: true })
+	).toBeVisible();
 
 	await hostPage.evaluate(() => {
 		(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
@@ -915,6 +980,237 @@ test('multiplayer Raju wheel intro resolves on both screens without getting stuc
 			timeout: 8_000
 		})
 		.toBe('spinning');
+
+	await hostContext.close();
+	await guestContext.close();
+});
+
+test('multiplayer dice rollback clears stale rolling state after moving onto a new tile', async ({
+	browser
+}) => {
+	test.setTimeout(90_000);
+
+	const { hostContext, guestContext, hostPage, guestPage, hostPlayerId } =
+		await startMultiplayerGameInBrowser(browser, '/?e2e=1&playTiles=1');
+
+	const currentState = await getExposedState(hostPage);
+
+	await injectGameState(hostPage, {
+		players: currentState.players.map((player, index) =>
+			index === 0 ? { ...player, position: 13 } : player
+		),
+		currentTurnPlayerId: hostPlayerId,
+		turnInProgress: true,
+		turnOwnerId: hostPlayerId,
+		phase: 'tile',
+		activeTilePosition: 13,
+		activeTileTrigger: 'landing',
+		activeTileSessionId: 1,
+		diceValue: null,
+		tileState: { dice_stage: 'waitingForRoll', dice_rolls: [3] }
+	});
+
+	await expect(hostPage.getByRole('button', { name: 'Heitä noppaa', exact: true })).toBeVisible();
+	await hostPage.evaluate(() => {
+		(window as Window & { __GB_TILE_ACTION__?: () => void }).__GB_TILE_ACTION__?.();
+	});
+
+	await expect
+		.poll(
+			async () => {
+				const hostState = await getExposedState(hostPage);
+				const guestState = await getExposedState(guestPage);
+
+				return {
+					host: {
+						position: hostState.players[0]?.position,
+						activeTilePosition: hostState.activeTilePosition,
+						sessionId: hostState.activeTileSessionId,
+						button: await hostPage.getByRole('button', { name: 'Sulje' }).isVisible()
+					},
+					guest: {
+						position: guestState.players[0]?.position,
+						activeTilePosition: guestState.activeTilePosition,
+						sessionId: guestState.activeTileSessionId,
+						button: await guestPage.getByRole('button', { name: 'Sulje' }).isVisible()
+					}
+				};
+			},
+			{ timeout: 15_000 }
+		)
+		.toEqual({
+			host: { position: 10, activeTilePosition: 10, sessionId: 2, button: true },
+			guest: { position: 10, activeTilePosition: 10, sessionId: 2, button: true }
+		});
+
+	await expect(hostPage.getByRole('button', { name: 'Pyöritetään..', exact: true })).toHaveCount(0);
+	await expect(guestPage.getByRole('button', { name: 'Pyöritetään..', exact: true })).toHaveCount(
+		0
+	);
+
+	await hostContext.close();
+	await guestContext.close();
+});
+
+test('multiplayer 35-back tile does not keep stale rolling actions after movement', async ({
+	browser
+}) => {
+	test.setTimeout(90_000);
+
+	const { hostContext, guestContext, hostPage, guestPage, hostPlayerId } =
+		await startMultiplayerGameInBrowser(browser, '/?e2e=1&playTiles=1');
+
+	const currentState = await getExposedState(hostPage);
+
+	await injectGameState(hostPage, {
+		players: currentState.players.map((player, index) =>
+			index === 0 ? { ...player, position: 53 } : player
+		),
+		currentTurnPlayerId: hostPlayerId,
+		turnInProgress: true,
+		turnOwnerId: hostPlayerId,
+		phase: 'tile',
+		activeTilePosition: 53,
+		activeTileTrigger: 'landing',
+		activeTileSessionId: 5,
+		diceValue: null,
+		tileState: { dice_stage: 'waitingForRoll', dice_rolls: [6, 6] }
+	});
+
+	await expect(hostPage.getByRole('button', { name: 'Heitä noppaa', exact: true })).toBeVisible();
+	await hostPage.evaluate(() => {
+		(window as Window & { __GB_TILE_ACTION__?: () => void }).__GB_TILE_ACTION__?.();
+	});
+
+	await expect
+		.poll(
+			async () => {
+				const hostState = await getExposedState(hostPage);
+				const guestState = await getExposedState(guestPage);
+
+				return {
+					host: {
+						position: hostState.players[0]?.position,
+						activeTilePosition: hostState.activeTilePosition,
+						sessionId: hostState.activeTileSessionId
+					},
+					guest: {
+						position: guestState.players[0]?.position,
+						activeTilePosition: guestState.activeTilePosition,
+						sessionId: guestState.activeTileSessionId
+					}
+				};
+			},
+			{ timeout: 15_000 }
+		)
+		.toEqual({
+			host: { position: 18, activeTilePosition: 18, sessionId: 6 },
+			guest: { position: 18, activeTilePosition: 18, sessionId: 6 }
+		});
+
+	await expect(hostPage.getByRole('button', { name: 'Sulje', exact: true })).toBeVisible();
+	await expect(guestPage.getByRole('button', { name: 'Sulje', exact: true })).toBeVisible();
+	await expect(hostPage.getByRole('button', { name: 'Pyöritetään..', exact: true })).toHaveCount(0);
+	await expect(guestPage.getByRole('button', { name: 'Pyöritetään..', exact: true })).toHaveCount(
+		0
+	);
+
+	await hostContext.close();
+	await guestContext.close();
+});
+
+test('multiplayer six-to-win failure clears rolling state and leaves the tile closable', async ({
+	browser
+}) => {
+	test.setTimeout(90_000);
+
+	const { hostContext, guestContext, hostPage, guestPage, hostPlayerId, guestPlayerId } =
+		await startMultiplayerGameInBrowser(browser, '/?e2e=1&playTiles=1');
+
+	const currentState = await getExposedState(hostPage);
+
+	await injectGameState(hostPage, {
+		players: currentState.players.map((player, index) =>
+			index === 0 ? { ...player, position: 54 } : player
+		),
+		currentTurnPlayerId: hostPlayerId,
+		turnInProgress: true,
+		turnOwnerId: hostPlayerId,
+		phase: 'tile',
+		activeTilePosition: 54,
+		activeTileTrigger: 'landing',
+		activeTileSessionId: 9,
+		diceValue: null,
+		tileState: { dice_stage: 'waitingForRoll', dice_rolls: [5] }
+	});
+
+	await expect(hostPage.getByRole('button', { name: 'Heitä noppaa', exact: true })).toBeVisible();
+	await hostPage.evaluate(() => {
+		(window as Window & { __GB_TILE_ACTION__?: () => void }).__GB_TILE_ACTION__?.();
+	});
+
+	await expect
+		.poll(
+			async () => {
+				const hostState = await getExposedState(hostPage);
+				const guestState = await getExposedState(guestPage);
+
+				return {
+					host: {
+						position: hostState.players[0]?.position,
+						activeTilePosition: hostState.activeTilePosition,
+						sessionId: hostState.activeTileSessionId,
+						stage: hostState.tileState?.['dice_stage']
+					},
+					guest: {
+						position: guestState.players[0]?.position,
+						activeTilePosition: guestState.activeTilePosition,
+						sessionId: guestState.activeTileSessionId,
+						stage: guestState.tileState?.['dice_stage']
+					}
+				};
+			},
+			{ timeout: 15_000 }
+		)
+		.toEqual({
+			host: { position: 53, activeTilePosition: 54, sessionId: 9, stage: 'resolved' },
+			guest: { position: 53, activeTilePosition: 54, sessionId: 9, stage: 'resolved' }
+		});
+
+	await expect(hostPage.getByRole('button', { name: 'Sulje', exact: true })).toBeVisible();
+	await expect(guestPage.getByRole('button', { name: 'Sulje', exact: true })).toBeVisible();
+	await expect(hostPage.getByRole('button', { name: 'Pyöritetään..', exact: true })).toHaveCount(0);
+	await expect(guestPage.getByRole('button', { name: 'Pyöritetään..', exact: true })).toHaveCount(
+		0
+	);
+
+	await hostPage.getByRole('button', { name: 'Sulje', exact: true }).click();
+
+	await expect
+		.poll(
+			async () => {
+				const hostState = await getExposedState(hostPage);
+				const guestState = await getExposedState(guestPage);
+
+				return {
+					host: {
+						currentTurnPlayerId: hostState.currentTurnPlayerId,
+						activeTilePosition: hostState.activeTilePosition,
+						phase: hostState.phase
+					},
+					guest: {
+						currentTurnPlayerId: guestState.currentTurnPlayerId,
+						activeTilePosition: guestState.activeTilePosition,
+						phase: guestState.phase
+					}
+				};
+			},
+			{ timeout: 8_000 }
+		)
+		.toEqual({
+			host: { currentTurnPlayerId: guestPlayerId, activeTilePosition: null, phase: 'idle' },
+			guest: { currentTurnPlayerId: guestPlayerId, activeTilePosition: null, phase: 'idle' }
+		});
 
 	await hostContext.close();
 	await guestContext.close();

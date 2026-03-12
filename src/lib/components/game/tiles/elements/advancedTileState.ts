@@ -6,7 +6,7 @@ export type SpinnerStage =
 	| 'spinning'
 	| 'result';
 
-export type DiceTileStage = 'waitingForRoll' | 'rolling';
+export type DiceTileStage = 'waitingForRoll' | 'rolling' | 'resolved';
 
 export function getSpinnerButtonText(stage: SpinnerStage): string | null {
 	if (stage === 'waitingForSpin') {
@@ -20,8 +20,16 @@ export function getSpinnerButtonText(stage: SpinnerStage): string | null {
 	return 'Odota..';
 }
 
-export function getDiceTileButtonText(stage: DiceTileStage): string {
-	return stage === 'waitingForRoll' ? 'Heitä noppaa' : 'Pyöritetään..';
+export function getDiceTileButtonText(stage: DiceTileStage): string | null {
+	if (stage === 'waitingForRoll') {
+		return 'Heitä noppaa';
+	}
+
+	if (stage === 'rolling') {
+		return 'Pyöritetään..';
+	}
+
+	return null;
 }
 
 export function getSpinResult(spinFloat: number, wheelOptions: number, spinsBeforeStop: number) {
@@ -55,4 +63,37 @@ export function isValidTargetIndex(
 		normalizedTargetIndex < playerCount &&
 		normalizedTargetIndex !== currentPlayerIndex
 	);
+}
+
+export function getRandomDiceRolls(
+	count: number,
+	getRandomInt: (min: number, max: number) => number
+): number[] {
+	return Array.from({ length: count }, () => getRandomInt(1, 7));
+}
+
+export function normalizeDiceRolls(value: unknown, count: number): number[] | null {
+	if (!Array.isArray(value) || value.length !== count) {
+		return null;
+	}
+
+	const normalizedRolls = value.map((entry) => Number(entry));
+
+	if (normalizedRolls.some((roll) => !Number.isInteger(roll) || roll < 1 || roll > 6)) {
+		return null;
+	}
+
+	return normalizedRolls;
+}
+
+export function areDiceRollsEqual(left: number[] | null, right: number[] | null): boolean {
+	if (left === right) {
+		return true;
+	}
+
+	if (left === null || right === null || left.length !== right.length) {
+		return false;
+	}
+
+	return left.every((value, index) => value === right[index]);
 }

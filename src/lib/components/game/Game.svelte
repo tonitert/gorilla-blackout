@@ -8,7 +8,11 @@
 	import { tiles } from './tiles/tiles';
 	import type { ElementProps } from './tiles/elements/elementProps';
 	import { fade } from 'svelte/transition';
-	import { gameStateStore as gameState, clearGameState } from '$lib/gameState.svelte';
+	import {
+		gameStateStore as gameState,
+		clearGameState,
+		type GameState
+	} from '$lib/gameState.svelte';
 	import { derived } from 'svelte/store';
 	import board from '$lib/assets/gorilla.png';
 	import { playerImages } from './playerImages';
@@ -55,8 +59,12 @@
 		$gameState.players.map((player, index) => calculatePosition(player.position, index))
 	);
 	let overlayButtonText: string | null = $state(null);
+	let overlayButtonSessionId: number | null = $state(null);
 	let currentTile = $derived(
 		getActiveTileView($gameState.activeTilePosition, $gameState.activeTileTrigger)
+	);
+	const activeOverlayButtonText = $derived(
+		overlayButtonSessionId === $gameState.activeTileSessionId ? overlayButtonText : null
 	);
 
 	let initializedTurnPlayer = $state(false);
@@ -77,18 +85,6 @@
 	let currentPlayerIndex = derived(gameState, ($gameState) =>
 		$gameState.players.findIndex((p) => p.id === $gameState.currentTurnPlayerId)
 	);
-
-	let nextPlayer = derived(gameState, () => {
-		const start = $currentPlayerIndex + 1;
-		let index = start;
-		while (
-			hasPlayerWon(index % $gameState.players.length) &&
-			index - start <= $gameState.players.length
-		) {
-			index++;
-		}
-		return $gameState.players[index % $gameState.players.length];
-	});
 
 	function calculateRandom(x: number, y: number, playerIndex: number): [number, number] {
 		let boardX = x * xTileSize;
@@ -143,6 +139,78 @@
 
 	function allPlayersWon(): boolean {
 		return $gameState.players.length > 0 && $gameState.players.every((_, i) => hasPlayerWon(i));
+	}
+
+	function hasPlayerWonInState(state: GameState, index: number): boolean {
+		return state.players[index]?.position >= lastTilePosition;
+	}
+
+	function allPlayersWonInState(state: GameState): boolean {
+		return (
+			state.players.length > 0 &&
+			state.players.every((_, index) => hasPlayerWonInState(state, index))
+		);
+	}
+
+	function getNextTurnPlayerId(state: GameState): string | null {
+		if (state.players.length === 0) {
+			return null;
+		}
+
+		const currentIndex = state.players.findIndex(
+			(player) => player.id === state.currentTurnPlayerId
+		);
+		const startIndex = currentIndex >= 0 ? currentIndex + 1 : 0;
+		let nextIndex = startIndex;
+
+		while (
+			hasPlayerWonInState(state, nextIndex % state.players.length) &&
+			nextIndex - startIndex <= state.players.length
+		) {
+			nextIndex++;
+		}
+
+		return state.players[nextIndex % state.players.length]?.id ?? null;
+	}
+
+	function buildEndTurnState(state: GameState): GameState {
+		return {
+			...state,
+			turn: state.turn + 1,
+			currentTurnPlayerId: getNextTurnPlayerId(state),
+			turnInProgress: false,
+			turnOwnerId: null,
+			phase: 'idle',
+			activeTilePosition: null,
+			activeTileTrigger: null,
+			diceValue: null,
+			tileState: null
+		};
+	}
+
+	function buildTileTransitionState(
+		state: GameState,
+		position: number,
+		trigger: ActiveTileTrigger
+	): GameState {
+		if (tiles.hasOwnProperty(position)) {
+			return {
+				...state,
+				activeTilePosition: position,
+				activeTileTrigger: trigger,
+				activeTileSessionId: state.activeTileSessionId + 1,
+				phase: 'tile',
+				tileState: null
+			};
+		}
+
+		return buildEndTurnState({
+			...state,
+			activeTilePosition: null,
+			activeTileTrigger: null,
+			phase: 'idle',
+			tileState: null
+		});
 	}
 
 	function nextTurn() {
@@ -219,51 +287,39 @@
 
 	function showTileForPlayer(player: Player, trigger: ActiveTileTrigger) {
 		overlayButtonText = null;
+		overlayButtonSessionId = null;
 		customTileElement = {};
 		if (autoResolveTilesInE2EMode) {
-			gameState.update((state) => ({
-				...state,
-				activeTilePosition: null,
-				activeTileTrigger: null,
-				phase: 'idle',
-				tileState: null
-			}));
-			endTurn();
+			gameState.update((state) => buildEndTurnState(state));
 			return;
 		}
-		const pos = player.position;
-		if (tiles.hasOwnProperty(pos)) {
-			gameState.update((state) => ({
-				...state,
-				activeTilePosition: pos,
-				activeTileTrigger: trigger,
-				activeTileSessionId: state.activeTileSessionId + 1,
-				phase: 'tile',
-				tileState: null
-			}));
-		} else {
-			gameState.update((state) => ({
-				...state,
-				activeTilePosition: null,
-				activeTileTrigger: null,
-				phase: 'idle',
-				tileState: null
-			}));
-			endTurn();
-		}
+
+		gameState.update((state) => buildTileTransitionState(state, player.position, trigger));
 	}
 
 	let customTileElement: { onActionButtonClick?: () => void } = $state({});
 
 	function buildDefaultOverlayProps(): ElementProps {
+		const tileSessionId = $gameState.activeTileSessionId;
+		const isActiveTileSession = () =>
+			$gameState.activeTilePosition !== null && $gameState.activeTileSessionId === tileSessionId;
+
 		return {
 			players: $gameState.players,
 			setActionButtonText: (text: string | null) => {
+				if (!isActiveTileSession()) {
+					return;
+				}
 				overlayButtonText = text;
+				overlayButtonSessionId = tileSessionId;
 			},
 			tileState: $gameState.tileState,
 			setTileState: (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => {
 				gameState.update((state) => {
+					if (state.activeTilePosition === null || state.activeTileSessionId !== tileSessionId) {
+						return state;
+					}
+
 					const previousTileState = state.tileState ?? {};
 					const nextTileState = updater(previousTileState);
 
@@ -279,18 +335,24 @@
 			},
 			canAct: canLocalPlayerAct,
 			movePlayer: (offset: number, index: number, triggerTile?: boolean) => {
-				let movedPlayer: Player | undefined;
 				gameState.update((state) => {
+					if (state.activeTilePosition === null || state.activeTileSessionId !== tileSessionId) {
+						return state;
+					}
+
 					const players = state.players.map((player, playerIndex) => {
 						if (playerIndex !== index) return player;
-						movedPlayer = { ...player, position: player.position + offset };
-						return movedPlayer;
+						return { ...player, position: player.position + offset };
 					});
-					return { ...state, players };
+					const movedPlayer = players[index];
+					const movedState = { ...state, players };
+
+					if (!movedPlayer || triggerTile === false) {
+						return movedState;
+					}
+
+					return buildTileTransitionState(movedState, movedPlayer.position, 'landing');
 				});
-				if (triggerTile !== false && movedPlayer) {
-					showTileForPlayer(movedPlayer, 'landing');
-				}
 			},
 			positions: $gameState.players.map((player) => player.position),
 			currentPlayerIndex: $currentPlayerIndex
@@ -299,19 +361,9 @@
 
 	function endTurn() {
 		overlayButtonText = null;
+		overlayButtonSessionId = null;
 		customTileElement = {};
-		gameState.update((state) => ({
-			...state,
-			turn: state.turn + 1,
-			currentTurnPlayerId: $nextPlayer.id,
-			turnInProgress: false,
-			turnOwnerId: null,
-			phase: 'idle',
-			activeTilePosition: null,
-			activeTileTrigger: null,
-			diceValue: null,
-			tileState: null
-		}));
+		gameState.update((state) => buildEndTurnState(state));
 	}
 
 	const canLocalPlayerAct = $derived.by(() => {
@@ -335,7 +387,7 @@
 		if (allPlayersWon()) {
 			clearGameState();
 		} else if (currentTile !== null) {
-			if (overlayButtonText) {
+			if (activeOverlayButtonText) {
 				customTileElement.onActionButtonClick?.();
 			} else endTurn();
 		} else {
@@ -345,12 +397,19 @@
 
 	$effect(() => {
 		if (!e2eMode || typeof window === 'undefined') return;
-		const target = window as Window & { __GB_NEXT__?: () => void };
+		const target = window as Window & {
+			__GB_NEXT__?: () => void;
+			__GB_TILE_ACTION__?: () => void;
+		};
 		target.__GB_NEXT__ = () => {
 			handleNextTurnButtonClick();
 		};
+		target.__GB_TILE_ACTION__ = () => {
+			customTileElement.onActionButtonClick?.();
+		};
 		return () => {
 			delete target.__GB_NEXT__;
+			delete target.__GB_TILE_ACTION__;
 		};
 	});
 </script>
@@ -452,8 +511,8 @@
 				onclick={handleNextTurnButtonClick}
 			>
 				{currentTile !== null
-					? overlayButtonText
-						? overlayButtonText
+					? activeOverlayButtonText
+						? activeOverlayButtonText
 						: 'Sulje'
 					: allPlayersWon()
 						? 'Takaisin aloitusnäyttöön'
