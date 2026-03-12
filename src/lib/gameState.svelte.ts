@@ -11,6 +11,8 @@ export interface GameState {
 	turnOwnerId: string | null;
 	phase: 'idle' | 'rolling' | 'tile';
 	activeTilePosition: number | null;
+	activeTileTrigger: 'landing' | 'moveStart' | null;
+	activeTileSessionId: number;
 	diceValue: number | null;
 	tileState: Record<string, unknown> | null;
 	inGame: boolean;
@@ -32,6 +34,8 @@ const initialGameState: GameState = {
 	turnOwnerId: null,
 	phase: 'idle',
 	activeTilePosition: null,
+	activeTileTrigger: null,
+	activeTileSessionId: 0,
 	diceValue: null,
 	tileState: null,
 	inGame: false,
@@ -67,7 +71,10 @@ export function clearGameState() {
 		turnOwnerId: null,
 		phase: 'idle',
 		activeTilePosition: null,
+		activeTileTrigger: null,
+		activeTileSessionId: 0,
 		diceValue: null,
+		tileState: null,
 		inGame: false
 	});
 }

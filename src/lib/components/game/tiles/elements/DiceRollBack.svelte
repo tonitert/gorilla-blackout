@@ -1,8 +1,10 @@
 <script lang="ts">
 	import Dice from '$lib/components/ui/dice/Dice.svelte';
 	import type { ElementPropsTile } from './elementProps';
+	import { getDiceTileButtonText, type DiceTileStage } from './advancedTileState';
 
-	let stage = $state<'waitingForRoll' | 'rolling'>('waitingForRoll');
+	let stage = $state<DiceTileStage>('waitingForRoll');
+	const stageKey = 'dice_stage';
 
 	interface DiceRollBackProps extends ElementPropsTile {
 		multiplier?: number;
@@ -18,24 +20,33 @@
 		canAct = true
 	}: DiceRollBackProps = $props();
 
-	setActionButtonText?.('Heitä noppaa');
+	function setStage(nextStage: DiceTileStage, options: { broadcast?: boolean } = {}) {
+		const { broadcast = canAct } = options;
+		stage = nextStage;
 
-	// Non-acting player: mirror stage from tileState
+		if (broadcast) {
+			setTileState?.((prev) =>
+				prev[stageKey] === nextStage ? prev : { ...prev, [stageKey]: nextStage }
+			);
+		}
+	}
+
 	$effect(() => {
-		if (canAct) return;
-		const remoteStage = tileState?.['dice_stage'] as string | undefined;
-		if (remoteStage === 'rolling' && stage !== 'rolling') {
-			stage = 'rolling';
-			setActionButtonText?.('Pyöritetään..');
+		setActionButtonText?.(getDiceTileButtonText(stage));
+	});
+
+	$effect(() => {
+		const remoteStage = tileState?.[stageKey];
+
+		if (typeof remoteStage === 'string' && remoteStage !== stage) {
+			setStage(remoteStage as DiceTileStage, { broadcast: false });
 		}
 	});
 
 	export function onActionButtonClick() {
 		if (!canAct) return;
 		if (stage === 'waitingForRoll') {
-			stage = 'rolling';
-			setTileState?.((prev) => ({ ...prev, dice_stage: 'rolling' }));
-			setActionButtonText?.('Pyöritetään..');
+			setStage('rolling');
 		}
 	}
 </script>

@@ -158,9 +158,9 @@
 									disabled={usedImages.has(name)}
 									pressed={localImage === name}
 									onclick={(e) => {
-									localImage = name as PlayerImage;
-									onSaveImage(name as PlayerImage);
-									e.preventDefault();
+										localImage = name as PlayerImage;
+										onSaveImage(name as PlayerImage);
+										e.preventDefault();
 									}}
 								>
 									<img src={image} alt={name} class="h-16 w-16 object-contain" />
@@ -212,6 +212,8 @@
 								turnOwnerId: null,
 								phase: 'idle',
 								activeTilePosition: null,
+								activeTileTrigger: null,
+								activeTileSessionId: 0,
 								diceValue: null,
 								inGame: true
 							}));

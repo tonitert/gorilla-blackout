@@ -35,16 +35,17 @@ test('devcontainer exposes the expected toolchain and ports', async () => {
 	assert.equal(config.build.dockerfile, 'Dockerfile');
 	assert.equal(config.build.context, '..');
 	assert.equal(config.build.args.NODE_VARIANT, '22-bookworm');
-	assert.equal(config.remoteUser, 'node');
+	assert.equal(config.remoteUser, 'root');
 	assert.equal(config.workspaceFolder, '/workspaces/gorilla-blackout');
 	assert.deepEqual(config.forwardPorts, [5173, 4173, 3001]);
 	assert.deepEqual(config.runArgs, ['--init', '--ipc=host']);
 	assert.equal(config.containerEnv.PLAYWRIGHT_BROWSERS_PATH, '/ms-playwright');
 	assert.equal(config.mounts.length, 1);
-	assert.match(config.mounts[0], /pnpm-store/);
+	assert.match(config.mounts[0], /target=\/pnpm\/store/);
 	assert.match(dockerfile, /devcontainers\/javascript-node:1-\$\{NODE_VARIANT\}/);
-	assert.match(dockerfile, /corepack prepare pnpm@10\.31\.0 --activate/);
-	assert.match(dockerfile, /npm install -g @openai\/codex/);
+	assert.match(dockerfile, /ENV PNPM_STORE_DIR=\/pnpm\/store/);
+	assert.match(dockerfile, /npm install -g pnpm@10\.31\.0 @openai\/codex/);
+	assert.match(dockerfile, /pnpm config set store-dir \/pnpm\/store --global/);
 	assert.match(
 		dockerfile,
 		/curl -fsSL https:\/\/opencode\.ai\/install \| OPENCODE_INSTALL_DIR=\/usr\/local\/bin bash/

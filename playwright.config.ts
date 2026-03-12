@@ -13,13 +13,13 @@ export default defineConfig({
 				'pnpm --dir backend install --frozen-lockfile && pnpm --dir backend build && pnpm --dir backend start',
 			port: 3001,
 			timeout: 120_000,
-			reuseExistingServer: false
+			reuseExistingServer: !process.env.CI
 		},
 		{
 			command: 'pnpm run build && pnpm run preview -- --port 4173',
 			port: 4173,
 			timeout: 180_000,
-			reuseExistingServer: false
+			reuseExistingServer: !process.env.CI
 		}
 	]
 });
