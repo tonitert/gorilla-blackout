@@ -13,9 +13,7 @@
 	"containerEnv": {
 		"PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright"
 	},
-	"mounts": [
-		"source=gorilla-blackout-pnpm-store,target=/pnpm/store,type=volume"
-	],
+	"mounts": ["source=gorilla-blackout-pnpm-store,target=/pnpm/store,type=volume"],
 	"forwardPorts": [5173, 4173, 3001],
 	"portsAttributes": {
 		"5173": {

@@ -30,6 +30,7 @@
 	import Overlay from '$lib/components/ui/Overlay.svelte';
 	import RajuOsoitin from '$lib/assets/RajuOsoitin.png';
 	import animationUrl from '$lib/assets/video/rajupyora.mp4';
+	import { getSpinnerButtonText, getSpinResult, type SpinnerStage } from './advancedTileState';
 
 	const {
 		players,
@@ -51,80 +52,146 @@
 	const resultKey = `spin_${depth}_result`;
 
 	const waitBeforeAnimation = 2000;
-	let stage = $state<
-		| 'starting'
-		| 'waitingForAnimation'
-		| 'animationPlaying'
-		| 'waitingForSpin'
-		| 'spinning'
-		| 'result'
-	>('starting');
+	const introFallbackMs = 20000;
+	let stage = $state<SpinnerStage>('starting');
 	let video: HTMLVideoElement | null = $state(null);
 	let spinDegrees = $state(0);
 	let chosen = $state(0);
+	let selectedSpinFloat = $state<number | null>(null);
 	let addedElementInstance = $state<{ onActionButtonClick?: () => void } | undefined>(undefined);
+	let videoPlaybackFailed = $state(false);
 
 	const wheelOptions = options.length;
 
-	function applySpinFloat(spinFloat: number) {
-		if (spinFloat >= wheelOptions) spinFloat = wheelOptions - Number.EPSILON;
-		chosen = Math.floor(spinFloat);
-		const fraction = spinFloat / wheelOptions;
-		spinDegrees = 360 * spinsBeforeStop + fraction * 360;
+	function setStage(nextStage: SpinnerStage, options: { broadcast?: boolean } = {}) {
+		const { broadcast = canAct } = options;
+
+		stage = nextStage;
+		setActionButtonText?.(getSpinnerButtonText(nextStage));
+
+		if (broadcast) {
+			setTileState?.((prev) =>
+				prev[stageKey] === nextStage ? prev : { ...prev, [stageKey]: nextStage }
+			);
+		}
 	}
 
-	onMount(async () => {
-		if (!canAct) return; // non-acting players are driven by $effect
+	function setSpinResult(spinFloat: number, options: { broadcast?: boolean } = {}) {
+		const { broadcast = canAct } = options;
+		const result = getSpinResult(spinFloat, wheelOptions, spinsBeforeStop);
 
-		setActionButtonText?.('Odota..');
-		let spinFloat = riggedRandom !== undefined ? riggedRandom : getRandomNumber(0, wheelOptions);
-		if (spinFloat >= wheelOptions) spinFloat = wheelOptions - Number.EPSILON;
-		applySpinFloat(spinFloat);
+		selectedSpinFloat = result.spinFloat;
+		chosen = result.chosen;
+		spinDegrees = result.spinDegrees;
 
-		// Publish the random result so all players spin to the same result
-		setTileState?.((prev) => ({ ...prev, [resultKey]: spinFloat }));
+		if (broadcast) {
+			setTileState?.((prev) =>
+				prev[resultKey] === result.spinFloat ? prev : { ...prev, [resultKey]: result.spinFloat }
+			);
+		}
+	}
 
-		if (!animation) {
-			stage = 'waitingForSpin';
-			setTileState?.((prev) => ({ ...prev, [stageKey]: 'waitingForSpin' }));
-			setActionButtonText?.('Pyöräytä pyörää');
-		} else {
-			stage = 'waitingForAnimation';
-			setTileState?.((prev) => ({ ...prev, [stageKey]: 'waitingForAnimation' }));
+	function completeIntro() {
+		if (!canAct) return;
+		if (stage !== 'waitingForAnimation' && stage !== 'animationPlaying') return;
+		setStage('waitingForSpin');
+	}
+
+	onMount(() => {
+		let cancelled = false;
+
+		if (!canAct) {
+			setActionButtonText?.(getSpinnerButtonText(stage));
+			return;
+		}
+
+		const initialize = async () => {
+			const remoteResult = tileState?.[resultKey];
+			const remoteStage = tileState?.[stageKey];
+
+			if (typeof remoteResult === 'number') {
+				setSpinResult(remoteResult, { broadcast: false });
+			} else {
+				setSpinResult(riggedRandom !== undefined ? riggedRandom : getRandomNumber(0, wheelOptions));
+			}
+
+			if (typeof remoteStage === 'string') {
+				setStage(remoteStage as SpinnerStage, { broadcast: false });
+				return;
+			}
+
+			if (!animation) {
+				setStage('waitingForSpin');
+				return;
+			}
+
+			setStage('waitingForAnimation');
 			await wait(waitBeforeAnimation);
-			stage = 'animationPlaying';
-			setTileState?.((prev) => ({ ...prev, [stageKey]: 'animationPlaying' }));
+
+			if (cancelled) return;
+
+			setStage('animationPlaying');
+		};
+
+		void initialize();
+
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	$effect(() => {
+		const remoteResult = tileState?.[resultKey];
+
+		if (typeof remoteResult === 'number' && remoteResult !== selectedSpinFloat) {
+			setSpinResult(remoteResult, { broadcast: false });
 		}
 	});
 
-	// Non-acting player: mirror acting player's result and stage from tileState
 	$effect(() => {
-		if (canAct) return;
+		const remoteStage = tileState?.[stageKey];
 
-		const remoteResult = tileState?.[resultKey];
-		const remoteStage = tileState?.[stageKey] as string | undefined;
+		if (typeof remoteStage === 'string' && remoteStage !== stage) {
+			setStage(remoteStage as SpinnerStage, { broadcast: false });
+		}
+	});
 
-		if (typeof remoteResult === 'number' && spinDegrees === 0) {
-			applySpinFloat(remoteResult);
+	$effect(() => {
+		if (stage !== 'animationPlaying') {
+			videoPlaybackFailed = false;
+			return;
 		}
 
-		if (remoteStage && remoteStage !== stage) {
-			stage = remoteStage as typeof stage;
-			if (remoteStage === 'waitingForSpin') {
-				setActionButtonText?.('Pyöräytä pyörää');
-			} else if (remoteStage === 'result') {
-				setActionButtonText?.(null);
-			} else {
-				setActionButtonText?.('Odota..');
+		let cancelled = false;
+		const currentVideo = video;
+		const timeoutId = setTimeout(() => {
+			if (!cancelled) {
+				completeIntro();
 			}
+		}, introFallbackMs);
+
+		videoPlaybackFailed = false;
+
+		if (currentVideo) {
+			currentVideo.currentTime = 0;
+			void currentVideo.play().catch(() => {
+				if (cancelled) return;
+				videoPlaybackFailed = true;
+				completeIntro();
+			});
 		}
+
+		return () => {
+			cancelled = true;
+			clearTimeout(timeoutId);
+			currentVideo?.pause();
+		};
 	});
 
 	export function onActionButtonClick() {
 		if (!canAct) return;
 		if (stage === 'waitingForSpin') {
-			stage = 'spinning';
-			setTileState?.((prev) => ({ ...prev, [stageKey]: 'spinning' }));
+			setStage('spinning');
 		}
 		addedElementInstance?.onActionButtonClick?.();
 	}
@@ -135,42 +202,35 @@
 {/if}
 
 {#if (stage === 'waitingForAnimation' || stage === 'animationPlaying') && animation}
-	<div class="absolute h-full w-full bg-black">
+	<div
+		class="absolute h-full w-full bg-neutral-950 bg-contain bg-center bg-no-repeat"
+		style="background-image: url({spinnerImage});"
+	>
 		<!-- svelte-ignore a11y_media_has_caption -->
 		<video
+			muted
 			playsInline
+			preload="auto"
 			controls={false}
+			poster={spinnerImage}
 			bind:this={video}
-			class="w-full"
+			class="h-full w-full object-contain"
 			onended={() => {
-				if (!canAct) return;
-				stage = 'waitingForSpin';
-				setTileState?.((prev) => ({ ...prev, [stageKey]: 'waitingForSpin' }));
-				setActionButtonText?.('Pyöräytä pyörää');
+				completeIntro();
 			}}
 			onerror={() => {
-				if (!canAct) return;
-				stage = 'waitingForSpin';
-				setTileState?.((prev) => ({ ...prev, [stageKey]: 'waitingForSpin' }));
-				setActionButtonText?.('Pyöräytä pyörää');
+				videoPlaybackFailed = true;
+				completeIntro();
 			}}
 		>
-			<source src={animationUrl} />
+			<source src={animationUrl} type="video/mp4" />
 		</video>
+		{#if videoPlaybackFailed}
+			<div class="absolute inset-0 flex items-center justify-center bg-black/45">
+				<p class="rounded bg-black/70 px-4 py-2 text-center text-white">Pyörää valmistellaan...</p>
+			</div>
+		{/if}
 	</div>
-{/if}
-
-{#if stage === 'animationPlaying'}
-	{(() => {
-		setTimeout(() => {
-			if (stage === 'animationPlaying' && canAct) {
-				stage = 'waitingForSpin';
-				setTileState?.((prev) => ({ ...prev, [stageKey]: 'waitingForSpin' }));
-				setActionButtonText?.('Pyöräytä pyörää');
-			}
-		}, 30000);
-		video?.play();
-	})()}
 {/if}
 
 {#if stage === 'waitingForSpin' || stage === 'spinning' || stage === 'result'}
@@ -182,10 +242,8 @@
 				: 0}deg);"
 			class="aspect-square h-full w-full bg-contain transition-transform ease-[cubic-bezier(.25,-.01,.07,1)]"
 			ontransitionend={() => {
-				if (!canAct) return;
-				stage = 'result';
-				setTileState?.((prev) => ({ ...prev, [stageKey]: 'result' }));
-				setActionButtonText?.(null);
+				if (!canAct || stage !== 'spinning') return;
+				setStage('result');
 			}}
 		></div>
 		<img

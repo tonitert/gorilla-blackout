@@ -37,6 +37,8 @@
 					turnOwnerId: null,
 					phase: 'idle',
 					activeTilePosition: null,
+					activeTileTrigger: null,
+					activeTileSessionId: 0,
 					diceValue: null,
 					inGame: true
 				}));
@@ -53,9 +55,7 @@
 				delete (window as Window & { __GB_STATE__?: GameState }).__GB_STATE__;
 				delete (window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__;
 				delete (window as Window & { __GB_ROLL__?: number | null }).__GB_ROLL__;
-				delete (
-					window as Window & { __GB_INJECT_STATE__?: unknown }
-				).__GB_INJECT_STATE__;
+				delete (window as Window & { __GB_INJECT_STATE__?: unknown }).__GB_INJECT_STATE__;
 			};
 		}
 
@@ -89,6 +89,8 @@
 					turnOwnerId: null,
 					phase: 'idle',
 					activeTilePosition: null,
+					activeTileTrigger: null,
+					activeTileSessionId: 0,
 					diceValue: null,
 					currentTurnPlayerId: newPlayers[0]?.id ?? null
 				}));

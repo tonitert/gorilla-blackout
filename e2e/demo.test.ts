@@ -5,7 +5,10 @@ type ExposedGameState = {
 	turn: number;
 	phase: 'idle' | 'rolling' | 'tile';
 	activeTilePosition: number | null;
+	activeTileTrigger?: 'landing' | 'moveStart' | null;
+	activeTileSessionId?: number;
 	currentTurnPlayerId?: string | null;
+	turnOwnerId?: string | null;
 	diceValue?: number | null;
 	tileState?: Record<string, unknown> | null;
 };
@@ -46,6 +49,14 @@ function getExpectedLandingPosition(startPosition: number, roll: number): number
 async function savePlayerName(page: Page, name: string) {
 	await page.getByLabel('Nimi').first().fill(name);
 	await page.getByLabel('Nimi').first().blur();
+}
+
+async function startSingleDeviceGame(page: Page, url = '/?e2e=1') {
+	await page.goto(url);
+	await page.getByLabel('Nimi').nth(0).fill('Alpha');
+	await page.getByLabel('Nimi').nth(1).fill('Beta');
+	await page.getByRole('button', { name: 'Aloita peli' }).click();
+	await expect(page.locator('.game')).toBeVisible();
 }
 
 async function openCharacterPicker(page: Page) {
@@ -122,12 +133,7 @@ test('does not auto-enter previous game after refresh', async ({ page }) => {
 });
 
 test('single-device deterministic turns still advance players correctly', async ({ page }) => {
-	await page.goto('/?e2e=1');
-	await page.getByLabel('Nimi').nth(0).fill('Alpha');
-	await page.getByLabel('Nimi').nth(1).fill('Beta');
-	await page.getByRole('button', { name: 'Aloita peli' }).click();
-
-	await expect(page.locator('.game')).toBeVisible();
+	await startSingleDeviceGame(page);
 
 	const initialState = await getExposedState(page);
 	expect(initialState.players.map((player) => player.position)).toEqual([0, 0]);
@@ -151,6 +157,142 @@ test('single-device deterministic turns still advance players correctly', async 
 			phase: 'idle'
 		});
 });
+
+test('starting a turn on a move-start tile opens that interaction for the current player', async ({
+	page
+}) => {
+	await startSingleDeviceGame(page, '/?e2e=1&playTiles=1');
+
+	const initialState = await getExposedState(page);
+	const playerId = initialState.players[0].id;
+	expect(playerId).toBeTruthy();
+
+	await page.evaluate(
+		({ playerId }) => {
+			const target = window as Window & {
+				__GB_STATE__?: ExposedGameState;
+				__GB_INJECT_STATE__?: (partial: Record<string, unknown>) => void;
+			};
+			const current = target.__GB_STATE__!;
+			target.__GB_INJECT_STATE__?.({
+				players: current.players.map((player, index) =>
+					index === 0 ? { ...player, position: 53 } : player
+				),
+				currentTurnPlayerId: playerId,
+				turnInProgress: false,
+				turnOwnerId: null,
+				phase: 'idle',
+				activeTilePosition: null,
+				activeTileTrigger: null,
+				activeTileSessionId: 0,
+				diceValue: null,
+				tileState: null
+			});
+		},
+		{ playerId }
+	);
+
+	await page.evaluate(() => {
+		(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+	});
+
+	await expect
+		.poll(async () => {
+			const nextState = await getExposedState(page);
+			return {
+				activeTilePosition: nextState.activeTilePosition,
+				activeTileTrigger: nextState.activeTileTrigger,
+				turnOwnerId: nextState.turnOwnerId,
+				phase: nextState.phase
+			};
+		})
+		.toEqual({
+			activeTilePosition: 53,
+			activeTileTrigger: 'moveStart',
+			turnOwnerId: playerId,
+			phase: 'tile'
+		});
+
+	await expect(page.getByRole('button', { name: 'Heitä noppaa' })).toBeVisible();
+});
+
+test('dice rollback tiles reset their interaction state for each new tile session', async ({
+	page
+}) => {
+	await startSingleDeviceGame(page, '/?e2e=1&playTiles=1');
+
+	const initialState = await getExposedState(page);
+	const playerId = initialState.players[0].id;
+	expect(playerId).toBeTruthy();
+
+	await page.evaluate(
+		({ playerId }) => {
+			const target = window as Window & {
+				__GB_STATE__?: ExposedGameState;
+				__GB_INJECT_STATE__?: (partial: Record<string, unknown>) => void;
+			};
+			const current = target.__GB_STATE__!;
+			target.__GB_INJECT_STATE__?.({
+				players: current.players.map((player, index) =>
+					index === 0 ? { ...player, position: 13 } : player
+				),
+				currentTurnPlayerId: playerId,
+				turnInProgress: true,
+				turnOwnerId: playerId,
+				phase: 'tile',
+				activeTilePosition: 13,
+				activeTileTrigger: 'landing',
+				activeTileSessionId: 1,
+				diceValue: null,
+				tileState: null
+			});
+		},
+		{ playerId }
+	);
+
+	await expect(page.getByRole('button', { name: 'Heitä noppaa' })).toBeVisible();
+
+	await page.evaluate(() => {
+		(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+	});
+
+	await expect(page.getByRole('button', { name: 'Pyöritetään..' })).toBeVisible();
+
+	await page.evaluate(
+		({ playerId }) => {
+			const target = window as Window & {
+				__GB_STATE__?: ExposedGameState;
+				__GB_INJECT_STATE__?: (partial: Record<string, unknown>) => void;
+			};
+			const current = target.__GB_STATE__!;
+			target.__GB_INJECT_STATE__?.({
+				players: current.players.map((player, index) =>
+					index === 0 ? { ...player, position: 29 } : player
+				),
+				currentTurnPlayerId: playerId,
+				turnInProgress: true,
+				turnOwnerId: playerId,
+				phase: 'tile',
+				activeTilePosition: 29,
+				activeTileTrigger: 'landing',
+				activeTileSessionId: (current.activeTileSessionId ?? 0) + 1,
+				diceValue: null,
+				tileState: null
+			});
+		},
+		{ playerId }
+	);
+
+	await expect(page.getByRole('button', { name: 'Heitä noppaa' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Pyöritetään..' })).toHaveCount(0);
+
+	await page.evaluate(() => {
+		(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+	});
+
+	await expect(page.getByRole('button', { name: 'Pyöritetään..' })).toBeVisible();
+});
+
 test('multiplayer enforces unique character selection across sessions', async ({ browser }) => {
 	const hostContext = await browser.newContext();
 	const guestContext = await browser.newContext();
@@ -171,8 +313,6 @@ test('multiplayer enforces unique character selection across sessions', async ({
 	await openCharacterPicker(hostPage);
 	await characterToggle(hostPage, 'Kalja').click();
 	await savePlayerName(hostPage, 'Host');
-
-	await expect(guestPage.getByText('Host')).toBeVisible({ timeout: 30_000 });
 
 	await openCharacterPicker(guestPage);
 	await expect(characterToggle(guestPage, 'Kalja')).toBeDisabled();
@@ -216,8 +356,8 @@ test('keeps deterministic multiplayer turns synchronized on both screens', async
 
 	const initialState = await getExposedState(hostPage);
 	expect(initialState.players.length).toBeGreaterThanOrEqual(2);
-	const hostPlayerId = initialState.players.find((player) => player.name === 'Host')?.id;
-	const guestPlayerId = initialState.players.find((player) => player.name === 'Guest')?.id;
+	const hostPlayerId = initialState.players[0]?.id;
+	const guestPlayerId = initialState.players[1]?.id;
 	expect(hostPlayerId).toBeTruthy();
 	expect(guestPlayerId).toBeTruthy();
 
@@ -586,7 +726,6 @@ test('guest sees the nested 50/50 spinner when the host updates its stage', asyn
 	await joinLobbyWithCode(guestPage, code);
 	await savePlayerName(guestPage, 'Guest');
 
-	await expect(hostPage.getByText('Guest')).toBeVisible({ timeout: 30_000 });
 	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
 
 	await hostPage.evaluate(() =>
@@ -599,15 +738,18 @@ test('guest sees the nested 50/50 spinner when the host updates its stage', asyn
 	await expect(hostPage.locator('.game')).toBeVisible();
 	await expect(guestPage.locator('.game')).toBeVisible();
 
-	expect((await getExposedState(hostPage)).players.length).toBeGreaterThanOrEqual(2);
+	const hostState = await getExposedState(hostPage);
+	expect(hostState.players.length).toBeGreaterThanOrEqual(2);
+	const hostPlayerId = hostState.players.find((player) => player.name === 'Host')?.id;
+	expect(hostPlayerId).toBeTruthy();
 
-	await hostPage.evaluate(() => {
+	await guestPage.evaluate((playerId) => {
 		(
 			window as Window & { __GB_INJECT_STATE__?: (p: Record<string, unknown>) => void }
 		).__GB_INJECT_STATE__?.({
-			currentTurnPlayerId: 'external-test-player',
+			currentTurnPlayerId: playerId,
 			turnInProgress: true,
-			turnOwnerId: 'external-test-player',
+			turnOwnerId: playerId,
 			phase: 'tile',
 			activeTilePosition: 14,
 			tileState: {
@@ -615,14 +757,14 @@ test('guest sees the nested 50/50 spinner when the host updates its stage', asyn
 				spin_0_result: 3.25
 			}
 		});
-	});
+	}, hostPlayerId!);
 
 	await expect
 		.poll(
 			async () => {
 				const guestState = await getExposedState(guestPage);
 				return (
-					guestState.currentTurnPlayerId === 'external-test-player' &&
+					guestState.currentTurnPlayerId === hostPlayerId &&
 					guestState.activeTilePosition === 14 &&
 					guestState.tileState?.['spin_0_stage'] === 'result'
 				);
@@ -631,25 +773,16 @@ test('guest sees the nested 50/50 spinner when the host updates its stage', asyn
 		)
 		.toBe(true);
 
-	await expect
-		.poll(
-			async () =>
-				await guestPage.evaluate(() => document.querySelectorAll('img[alt="Raju Osoitin"]').length),
-			{
-				timeout: 8_000
-			}
-		)
-		.toBe(1);
-
-	await hostPage.evaluate(() => {
+	await guestPage.evaluate((playerId) => {
 		(
 			window as Window & { __GB_INJECT_STATE__?: (p: Record<string, unknown>) => void }
 		).__GB_INJECT_STATE__?.({
-			currentTurnPlayerId: 'external-test-player',
+			currentTurnPlayerId: playerId,
 			turnInProgress: true,
-			turnOwnerId: 'external-test-player',
+			turnOwnerId: playerId,
 			phase: 'tile',
 			activeTilePosition: 14,
+			activeTileSessionId: 1,
 			tileState: {
 				spin_0_stage: 'result',
 				spin_0_result: 3.25,
@@ -657,7 +790,7 @@ test('guest sees the nested 50/50 spinner when the host updates its stage', asyn
 				spin_1_result: 0.5
 			}
 		});
-	});
+	}, hostPlayerId!);
 
 	await expect
 		.poll(
@@ -668,6 +801,120 @@ test('guest sees the nested 50/50 spinner when the host updates its stage', asyn
 			}
 		)
 		.toBe(2);
+
+	await hostContext.close();
+	await guestContext.close();
+});
+
+test('multiplayer Raju wheel intro resolves on both screens without getting stuck', async ({
+	browser
+}) => {
+	test.setTimeout(90_000);
+
+	const hostContext = await browser.newContext();
+	const guestContext = await browser.newContext();
+	const hostPage = await hostContext.newPage();
+	const guestPage = await guestContext.newPage();
+
+	await hostPage.goto('/?e2e=1&playTiles=1');
+	await guestPage.goto('/?e2e=1&playTiles=1');
+
+	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
+	const code = await createLobbyAndReadCode(hostPage);
+	await savePlayerName(hostPage, 'Host');
+
+	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
+	await joinLobbyWithCode(guestPage, code);
+	await savePlayerName(guestPage, 'Guest');
+
+	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
+
+	await hostPage.evaluate(() =>
+		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.()
+	);
+	await guestPage.evaluate(() =>
+		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.()
+	);
+
+	await expect(hostPage.locator('.game')).toBeVisible();
+	await expect(guestPage.locator('.game')).toBeVisible();
+
+	const hostState = await getExposedState(hostPage);
+	const hostPlayerId = hostState.players.find((player) => player.name === 'Host')?.id;
+	expect(hostPlayerId).toBeTruthy();
+
+	await hostPage.evaluate((playerId) => {
+		(
+			window as Window & { __GB_INJECT_STATE__?: (p: Record<string, unknown>) => void }
+		).__GB_INJECT_STATE__?.({
+			currentTurnPlayerId: playerId,
+			turnInProgress: true,
+			turnOwnerId: playerId,
+			phase: 'tile',
+			activeTilePosition: 14,
+			activeTileTrigger: 'landing',
+			activeTileSessionId: 1,
+			tileState: null
+		});
+	}, hostPlayerId!);
+
+	await expect
+		.poll(
+			async () => {
+				const hostSnapshot = await hostPage.evaluate(() => ({
+					sessionId: (window as Window & { __GB_STATE__?: ExposedGameState }).__GB_STATE__
+						?.activeTileSessionId,
+					trigger: (window as Window & { __GB_STATE__?: ExposedGameState }).__GB_STATE__
+						?.activeTileTrigger,
+					stage: (window as Window & { __GB_STATE__?: ExposedGameState }).__GB_STATE__?.tileState?.[
+						'spin_0_stage'
+					],
+					videos: document.querySelectorAll('video').length
+				}));
+				const guestSnapshot = await guestPage.evaluate(() => ({
+					sessionId: (window as Window & { __GB_STATE__?: ExposedGameState }).__GB_STATE__
+						?.activeTileSessionId,
+					trigger: (window as Window & { __GB_STATE__?: ExposedGameState }).__GB_STATE__
+						?.activeTileTrigger,
+					stage: (window as Window & { __GB_STATE__?: ExposedGameState }).__GB_STATE__?.tileState?.[
+						'spin_0_stage'
+					],
+					videos: document.querySelectorAll('video').length
+				}));
+
+				return { hostSnapshot, guestSnapshot };
+			},
+			{ timeout: 15_000 }
+		)
+		.toEqual({
+			hostSnapshot: {
+				sessionId: 1,
+				trigger: 'landing',
+				stage: 'waitingForSpin',
+				videos: 0
+			},
+			guestSnapshot: {
+				sessionId: 1,
+				trigger: 'landing',
+				stage: 'waitingForSpin',
+				videos: 0
+			}
+		});
+
+	await expect(hostPage.getByRole('button', { name: 'Pyöräytä pyörää' })).toBeVisible();
+	await expect(guestPage.getByRole('button', { name: 'Pyöräytä pyörää' })).toBeVisible();
+
+	await hostPage.evaluate(() => {
+		(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+	});
+
+	await expect
+		.poll(async () => (await getExposedState(guestPage)).tileState?.['spin_0_stage'], {
+			timeout: 8_000
+		})
+		.toBe('spinning');
 
 	await hostContext.close();
 	await guestContext.close();

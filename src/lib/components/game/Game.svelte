@@ -5,7 +5,7 @@
 <script lang="ts">
 	import Button from '$lib/components/ui/button/button.svelte';
 	import Dice from '$lib/components/ui/dice/Dice.svelte';
-	import { tiles, type Tile } from './tiles/tiles';
+	import { tiles } from './tiles/tiles';
 	import type { ElementProps } from './tiles/elements/elementProps';
 	import { fade } from 'svelte/transition';
 	import { gameStateStore as gameState, clearGameState } from '$lib/gameState.svelte';
@@ -23,13 +23,16 @@
 		requestServerDiceRoll,
 		serverDiceRollStore
 	} from '$lib/multiplayer/client';
+	import { getActiveTileView } from './tiles/activeTile';
+	import type { ActiveTileTrigger } from './tiles/tileVariant';
 
 	const colors = ['#3559e8', '#d8de23', '#12e627', '#db1229'];
+	const urlSearchParams =
+		typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
 	const e2eMode = typeof window !== 'undefined' && isE2EMode(window.location.search);
 	const useDeterministicE2EDice =
-		typeof window !== 'undefined' &&
-		e2eMode &&
-		new URLSearchParams(window.location.search).get('randomDice') !== '1';
+		typeof window !== 'undefined' && e2eMode && urlSearchParams?.get('randomDice') !== '1';
+	const autoResolveTilesInE2EMode = e2eMode && urlSearchParams?.get('playTiles') !== '1';
 	const shouldShowTooltip = $derived(IsUsingKeyboard.current);
 
 	const leftBorderSize = 2;
@@ -52,10 +55,8 @@
 		$gameState.players.map((player, index) => calculatePosition(player.position, index))
 	);
 	let overlayButtonText: string | null = $state(null);
-	let currentTile = $derived<Tile<any, any> | null>(
-		$gameState.activeTilePosition !== null && tiles.hasOwnProperty($gameState.activeTilePosition)
-			? tiles[$gameState.activeTilePosition]
-			: null
+	let currentTile = $derived(
+		getActiveTileView($gameState.activeTilePosition, $gameState.activeTileTrigger)
 	);
 
 	let initializedTurnPlayer = $state(false);
@@ -152,6 +153,7 @@
 				turnOwnerId: null,
 				phase: 'idle',
 				activeTilePosition: null,
+				activeTileTrigger: null,
 				diceValue: null
 			}));
 			return;
@@ -163,14 +165,15 @@
 			turnOwnerId: state.currentTurnPlayerId,
 			phase: 'rolling',
 			activeTilePosition: null,
+			activeTileTrigger: null,
 			diceValue: null
 		}));
 
 		if (
-			tiles.hasOwnProperty($nextPlayer.position) &&
-			tiles[$nextPlayer.position].moveStartElement
+			tiles.hasOwnProperty($currentPlayer.position) &&
+			tiles[$currentPlayer.position].moveStartElement
 		) {
-			showTileForPlayer($nextPlayer);
+			showTileForPlayer($currentPlayer, 'moveStart');
 		}
 	}
 
@@ -211,15 +214,17 @@
 			),
 			phase: 'tile'
 		}));
-		showTileForPlayer($currentPlayer);
+		showTileForPlayer($currentPlayer, 'landing');
 	}
 
-	function showTileForPlayer(player: Player) {
+	function showTileForPlayer(player: Player, trigger: ActiveTileTrigger) {
 		overlayButtonText = null;
-		if (e2eMode) {
+		customTileElement = {};
+		if (autoResolveTilesInE2EMode) {
 			gameState.update((state) => ({
 				...state,
 				activeTilePosition: null,
+				activeTileTrigger: null,
 				phase: 'idle',
 				tileState: null
 			}));
@@ -231,6 +236,8 @@
 			gameState.update((state) => ({
 				...state,
 				activeTilePosition: pos,
+				activeTileTrigger: trigger,
+				activeTileSessionId: state.activeTileSessionId + 1,
 				phase: 'tile',
 				tileState: null
 			}));
@@ -238,6 +245,7 @@
 			gameState.update((state) => ({
 				...state,
 				activeTilePosition: null,
+				activeTileTrigger: null,
 				phase: 'idle',
 				tileState: null
 			}));
@@ -254,11 +262,20 @@
 				overlayButtonText = text;
 			},
 			tileState: $gameState.tileState,
-			setTileState: (updater) => {
-				gameState.update((state) => ({
-					...state,
-					tileState: updater(state.tileState ?? {})
-				}));
+			setTileState: (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => {
+				gameState.update((state) => {
+					const previousTileState = state.tileState ?? {};
+					const nextTileState = updater(previousTileState);
+
+					if (nextTileState === previousTileState) {
+						return state;
+					}
+
+					return {
+						...state,
+						tileState: nextTileState
+					};
+				});
 			},
 			canAct: canLocalPlayerAct,
 			movePlayer: (offset: number, index: number, triggerTile?: boolean) => {
@@ -272,7 +289,7 @@
 					return { ...state, players };
 				});
 				if (triggerTile !== false && movedPlayer) {
-					showTileForPlayer(movedPlayer);
+					showTileForPlayer(movedPlayer, 'landing');
 				}
 			},
 			positions: $gameState.players.map((player) => player.position),
@@ -282,6 +299,7 @@
 
 	function endTurn() {
 		overlayButtonText = null;
+		customTileElement = {};
 		gameState.update((state) => ({
 			...state,
 			turn: state.turn + 1,
@@ -290,6 +308,7 @@
 			turnOwnerId: null,
 			phase: 'idle',
 			activeTilePosition: null,
+			activeTileTrigger: null,
 			diceValue: null,
 			tileState: null
 		}));
@@ -388,21 +407,27 @@
 				{/if}
 			{/if}
 			{#if currentTile !== null}
-				<div
-					in:fade={{ duration: 1200 }}
-					class="backdrop flex h-full w-full flex-col items-center justify-center bg-black/60"
-				>
-					<p class="p-5 text-center text-2xl text-white">{currentTile.message}</p>
-					{#if currentTile.image}
-						<img src={currentTile.image} alt={currentTile.message} class="w-[40%] object-contain" />
-					{/if}
-					{#if currentTile.customElement}
-						<currentTile.customElement
-							bind:this={customTileElement}
-							{...{ ...currentTile.props, ...buildDefaultOverlayProps() }}
-						/>
-					{/if}
-				</div>
+				{#key $gameState.activeTileSessionId}
+					<div
+						in:fade={{ duration: 1200 }}
+						class="backdrop flex h-full w-full flex-col items-center justify-center bg-black/60"
+					>
+						<p class="p-5 text-center text-2xl text-white">{currentTile.message}</p>
+						{#if currentTile.image}
+							<img
+								src={currentTile.image}
+								alt={currentTile.message}
+								class="w-[40%] object-contain"
+							/>
+						{/if}
+						{#if currentTile.element}
+							<currentTile.element
+								bind:this={customTileElement}
+								{...{ ...currentTile.props, ...buildDefaultOverlayProps() }}
+							/>
+						{/if}
+					</div>
+				{/key}
 			{/if}
 		</div>
 	</div>
