@@ -2,36 +2,15 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { Server } from 'socket.io';
 import { z } from 'zod';
+import { gameRollRequestSchema, gameStateUpdateSchema } from './socketPayload.js';
 import { randomUUID } from 'node:crypto';
 const port = Number(process.env.PORT ?? 3001);
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
+const io = new Server(app.server, { cors: { origin: '*' } });
 const playerSchema = z.object({
     name: z.string().min(1).max(100),
     image: z.string().min(1)
-});
-const gamePlayerSchema = z.object({
-    id: z.string(),
-    name: z.string(),
-    image: z.string(),
-    position: z.number().int().nonnegative()
-});
-const gameStateSchema = z.object({
-    players: z.array(gamePlayerSchema),
-    turn: z.number().int().nonnegative(),
-    currentTurnPlayerId: z.string().nullable(),
-    turnInProgress: z.boolean(),
-    turnOwnerId: z.string().nullable(),
-    phase: z.enum(['idle', 'rolling', 'tile']),
-    activeTilePosition: z.number().int().nonnegative().nullable(),
-    activeTileTrigger: z.enum(['landing', 'moveStart']).nullable(),
-    activeTileSessionId: z.number().int().nonnegative(),
-    diceValue: z.number().int().min(1).max(6).nullable(),
-    tileState: z.record(z.string(), z.unknown()).nullable(),
-    inGame: z.boolean(),
-    spacebarTooltipShown: z.boolean(),
-    version: z.number(),
-    versionAvailable: z.string().nullable()
 });
 const lobbies = new Map();
 const maxLateJoinPosition = 54;
@@ -78,6 +57,78 @@ function hasDuplicateImage(lobby, playerId, image) {
     if (image === 'default')
         return false;
     return lobby.players.some((player) => player.id !== playerId && player.image === image);
+}
+function removePlayerFromLobby(lobby, targetPlayerId) {
+    const removedWasHost = lobby.hostId === targetPlayerId;
+    const nextPlayers = lobby.players.filter((player) => player.id !== targetPlayerId);
+    if (nextPlayers.length === lobby.players.length) {
+        return {
+            removed: false,
+            removedWasHost,
+            hostReassigned: false,
+            lobbyClosed: false,
+            gameEnded: false
+        };
+    }
+    lobby.players = nextPlayers;
+    const lobbyClosed = lobby.players.length === 0;
+    if (lobbyClosed) {
+        lobby.inGame = false;
+        lobby.state = null;
+        lobby.pendingRoll = null;
+        return {
+            removed: true,
+            removedWasHost,
+            hostReassigned: false,
+            lobbyClosed: true,
+            gameEnded: false
+        };
+    }
+    let hostReassigned = false;
+    if (removedWasHost) {
+        hostReassigned = true;
+        lobby.hostId = lobby.players[0].id;
+    }
+    const gameEnded = false;
+    if (lobby.state) {
+        const remainingStatePlayers = lobby.state.players.filter((player) => player.id !== targetPlayerId);
+        let nextTurnInProgress = lobby.state.turnInProgress;
+        let nextTurnOwnerId = lobby.state.turnOwnerId;
+        let nextCurrentTurnPlayerId = lobby.state.currentTurnPlayerId;
+        let nextPhase = lobby.state.phase;
+        let nextActiveTilePosition = lobby.state.activeTilePosition;
+        let nextActiveTileTrigger = lobby.state.activeTileTrigger;
+        let nextDiceValue = lobby.state.diceValue;
+        if (nextTurnOwnerId === targetPlayerId) {
+            nextTurnInProgress = false;
+            nextTurnOwnerId = null;
+            nextPhase = 'idle';
+            nextActiveTilePosition = null;
+            nextActiveTileTrigger = null;
+            nextDiceValue = null;
+        }
+        if (nextCurrentTurnPlayerId === targetPlayerId) {
+            nextCurrentTurnPlayerId = remainingStatePlayers[0]?.id ?? null;
+        }
+        lobby.state = {
+            ...lobby.state,
+            players: remainingStatePlayers,
+            turnInProgress: nextTurnInProgress,
+            turnOwnerId: nextTurnOwnerId,
+            currentTurnPlayerId: nextCurrentTurnPlayerId,
+            phase: nextPhase,
+            activeTilePosition: nextActiveTilePosition,
+            activeTileTrigger: nextActiveTileTrigger,
+            diceValue: nextDiceValue
+        };
+    }
+    return {
+        removed: true,
+        removedWasHost,
+        hostReassigned,
+        lobbyClosed: false,
+        gameEnded
+    };
 }
 app.post('/api/lobbies', async (request, reply) => {
     const parsed = playerSchema.safeParse(request.body);
@@ -165,6 +216,53 @@ app.post('/api/lobbies/:code/player', async (request, reply) => {
     broadcastGameState(lobby);
     return { lobby: publicLobby(lobby) };
 });
+app.post('/api/lobbies/:code/player/remove', async (request, reply) => {
+    const code = request.params.code.toUpperCase();
+    const lobby = lobbies.get(code);
+    if (!lobby)
+        return reply.code(404).send({ error: 'Lobby not found' });
+    const actorId = request.body?.actorId;
+    const targetPlayerId = request.body?.targetPlayerId;
+    if (!actorId || !targetPlayerId) {
+        return reply.code(400).send({ error: 'actorId and targetPlayerId required' });
+    }
+    const actor = lobby.players.find((player) => player.id === actorId);
+    if (!actor)
+        return reply.code(403).send({ error: 'Actor not in lobby' });
+    const target = lobby.players.find((player) => player.id === targetPlayerId);
+    if (!target)
+        return reply.code(404).send({ error: 'Player not found' });
+    const actorIsHost = lobby.hostId === actorId;
+    const actorRemovingSelf = actorId === targetPlayerId;
+    if (!actorIsHost && !actorRemovingSelf) {
+        return reply.code(403).send({ error: 'Not allowed to remove player' });
+    }
+    const result = removePlayerFromLobby(lobby, targetPlayerId);
+    if (!result.removed) {
+        return reply.code(404).send({ error: 'Player not found' });
+    }
+    if (result.lobbyClosed) {
+        io.to(code).emit('lobby:closed');
+        lobbies.delete(code);
+        return {
+            lobby: null,
+            removedPlayerId: targetPlayerId,
+            lobbyClosed: true,
+            hostReassigned: false,
+            gameEnded: result.gameEnded
+        };
+    }
+    broadcastLobby(lobby);
+    io.to(code).emit('lobby:player-removed', { playerId: targetPlayerId });
+    broadcastGameState(lobby);
+    return {
+        lobby: publicLobby(lobby),
+        removedPlayerId: targetPlayerId,
+        lobbyClosed: false,
+        hostReassigned: result.hostReassigned,
+        gameEnded: result.gameEnded
+    };
+});
 app.get('/api/lobbies/:code', async (request, reply) => {
     const lobby = lobbies.get(request.params.code.toUpperCase());
     if (!lobby)
@@ -188,7 +286,6 @@ app.post('/api/lobbies/:code/start', async (request, reply) => {
     return { lobby: publicLobby(lobby), state: lobby.state };
 });
 const server = await app.listen({ port, host: '0.0.0.0' });
-const io = new Server(app.server, { cors: { origin: '*' } });
 io.on('connection', (socket) => {
     const code = socket.handshake.auth.code?.toUpperCase();
     const playerId = socket.handshake.auth.playerId;
@@ -206,13 +303,12 @@ io.on('connection', (socket) => {
     if (lobby.state)
         socket.emit('game:state', lobby.state);
     socket.on('game:state:update', (payload) => {
-        if (!lobby.inGame || !payload)
+        if (!lobby.inGame)
             return;
-        if (payload.actorId !== playerId)
+        const parsedPayload = gameStateUpdateSchema.safeParse(payload);
+        if (!parsedPayload.success)
             return;
-        const candidateState = payload.state;
-        const parsedState = gameStateSchema.safeParse(candidateState);
-        if (!parsedState.success)
+        if (parsedPayload.data.actorId !== playerId)
             return;
         const previous = lobby.state;
         const allowedActor = previous?.turnInProgress
@@ -220,8 +316,8 @@ io.on('connection', (socket) => {
             : previous?.currentTurnPlayerId;
         if (allowedActor && allowedActor !== playerId)
             return;
-        lobby.state = parsedState.data;
-        lobby.players = parsedState.data.players.map((player) => ({ ...player }));
+        lobby.state = parsedPayload.data.state;
+        lobby.players = parsedPayload.data.state.players.map((player) => ({ ...player }));
         if (lobby.state.diceValue !== null) {
             lobby.pendingRoll = null;
         }
@@ -230,7 +326,10 @@ io.on('connection', (socket) => {
     socket.on('game:roll:request', (payload) => {
         if (!lobby.inGame || !lobby.state)
             return;
-        if (payload.actorId !== playerId)
+        const parsedPayload = gameRollRequestSchema.safeParse(payload);
+        if (!parsedPayload.success)
+            return;
+        if (parsedPayload.data.actorId !== playerId)
             return;
         const allowedActor = lobby.state.turnInProgress
             ? lobby.state.turnOwnerId

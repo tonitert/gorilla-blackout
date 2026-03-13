@@ -2,45 +2,25 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { Server } from 'socket.io';
 import { z } from 'zod';
+import {
+	gameRollRequestSchema,
+	gameStateSchema,
+	gameStateUpdateSchema,
+	type GameState
+} from './socketPayload.js';
 import { randomUUID } from 'node:crypto';
 
 const port = Number(process.env.PORT ?? 3001);
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true });
+const io = new Server(app.server, { cors: { origin: '*' } });
 
 const playerSchema = z.object({
 	name: z.string().min(1).max(100),
 	image: z.string().min(1)
 });
 
-const gamePlayerSchema = z.object({
-	id: z.string(),
-	name: z.string(),
-	image: z.string(),
-	position: z.number().int().nonnegative()
-});
-
-const gameStateSchema = z.object({
-	players: z.array(gamePlayerSchema),
-	turn: z.number().int().nonnegative(),
-	currentTurnPlayerId: z.string().nullable(),
-	turnInProgress: z.boolean(),
-	turnOwnerId: z.string().nullable(),
-	phase: z.enum(['idle', 'rolling', 'tile']),
-	activeTilePosition: z.number().int().nonnegative().nullable(),
-	activeTileTrigger: z.enum(['landing', 'moveStart']).nullable(),
-	activeTileSessionId: z.number().int().nonnegative(),
-	diceValue: z.number().int().min(1).max(6).nullable(),
-	tileState: z.record(z.string(), z.unknown()).nullable(),
-	inGame: z.boolean(),
-	spacebarTooltipShown: z.boolean(),
-	version: z.number(),
-	versionAvailable: z.string().nullable()
-});
-
 type Player = z.infer<typeof playerSchema> & { id: string; position: number };
-type GameState = z.infer<typeof gameStateSchema>;
-
 type Lobby = {
 	code: string;
 	hostId: string;
@@ -368,7 +348,6 @@ app.post<{ Params: { code: string }; Body: { playerId?: string } }>(
 );
 
 const server = await app.listen({ port, host: '0.0.0.0' });
-const io = new Server(app.server, { cors: { origin: '*' } });
 
 io.on('connection', (socket) => {
 	const code = (socket.handshake.auth.code as string | undefined)?.toUpperCase();
@@ -387,12 +366,11 @@ io.on('connection', (socket) => {
 	if (lobby.state) socket.emit('game:state', lobby.state);
 
 	socket.on('game:state:update', (payload) => {
-		if (!lobby.inGame || !payload) return;
-		if ((payload as { actorId?: string }).actorId !== playerId) return;
+		if (!lobby.inGame) return;
 
-		const candidateState = (payload as { state?: unknown }).state;
-		const parsedState = gameStateSchema.safeParse(candidateState);
-		if (!parsedState.success) return;
+		const parsedPayload = gameStateUpdateSchema.safeParse(payload);
+		if (!parsedPayload.success) return;
+		if (parsedPayload.data.actorId !== playerId) return;
 
 		const previous = lobby.state;
 		const allowedActor = previous?.turnInProgress
@@ -400,8 +378,8 @@ io.on('connection', (socket) => {
 			: previous?.currentTurnPlayerId;
 		if (allowedActor && allowedActor !== playerId) return;
 
-		lobby.state = parsedState.data;
-		lobby.players = parsedState.data.players.map((player) => ({ ...player }));
+		lobby.state = parsedPayload.data.state;
+		lobby.players = parsedPayload.data.state.players.map((player) => ({ ...player }));
 		if (lobby.state.diceValue !== null) {
 			lobby.pendingRoll = null;
 		}
@@ -410,7 +388,10 @@ io.on('connection', (socket) => {
 
 	socket.on('game:roll:request', (payload) => {
 		if (!lobby.inGame || !lobby.state) return;
-		if ((payload as { actorId?: string }).actorId !== playerId) return;
+
+		const parsedPayload = gameRollRequestSchema.safeParse(payload);
+		if (!parsedPayload.success) return;
+		if (parsedPayload.data.actorId !== playerId) return;
 
 		const allowedActor = lobby.state.turnInProgress
 			? lobby.state.turnOwnerId
