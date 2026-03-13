@@ -1,6 +1,6 @@
 import { writable, get } from 'svelte/store';
 import { io, type Socket } from 'socket.io-client';
-import { gameStateStore, type GameState } from '$lib/gameState.svelte';
+import { clearGameState, gameStateStore, type GameState } from '$lib/gameState.svelte';
 
 export type GameMode = 'single' | 'multi';
 
@@ -93,6 +93,48 @@ export async function updateLobbyPlayer(data: { name?: string; image?: string })
 	multiplayerStore.update((state) => ({ ...state, lobby: payload.lobby }));
 }
 
+export async function removeLobbyPlayer(targetPlayerId: string) {
+	const session = get(multiplayerStore);
+	if (!session.code || !session.playerId) return;
+	const payload = await post<{
+		lobby: Lobby | null;
+		removedPlayerId: string;
+		lobbyClosed: boolean;
+		hostReassigned: boolean;
+		gameEnded: boolean;
+	}>(`/api/lobbies/${session.code}/player/remove`, {
+		actorId: session.playerId,
+		targetPlayerId
+	});
+
+	if (payload.removedPlayerId === session.playerId || payload.lobbyClosed) {
+		disconnectAndResetSession('single');
+		clearGameState();
+		return;
+	}
+
+	multiplayerStore.update((state) => ({
+		...state,
+		isHost: payload.lobby?.hostId === state.playerId,
+		lobby: payload.lobby
+	}));
+}
+
+export async function quitCurrentGame() {
+	const session = get(multiplayerStore);
+	if (session.mode === 'multi' && session.code && session.playerId) {
+		try {
+			await removeLobbyPlayer(session.playerId);
+			return;
+		} catch {
+			// If network request fails, still allow local user to exit the game view.
+		}
+	}
+
+	disconnectAndResetSession('single');
+	clearGameState();
+}
+
 function connect() {
 	const session = get(multiplayerStore);
 	if (!session.code || !session.playerId) return;
@@ -100,6 +142,20 @@ function connect() {
 	socket = io(backendUrl, { auth: { code: session.code, playerId: session.playerId } });
 	socket.on('lobby:update', (lobby: Lobby) => {
 		multiplayerStore.update((state) => ({ ...state, lobby }));
+		if (!lobby.inGame) {
+			clearGameState();
+		}
+	});
+	socket.on('lobby:closed', () => {
+		disconnectAndResetSession('single');
+		clearGameState();
+	});
+	socket.on('lobby:player-removed', (payload: { playerId?: string }) => {
+		const removedPlayerId = payload?.playerId;
+		if (!removedPlayerId) return;
+		if (removedPlayerId !== session.playerId) return;
+		disconnectAndResetSession('single');
+		clearGameState();
 	});
 	socket.on('game:state', (state: GameState) => {
 		const enteringRollingPhase =

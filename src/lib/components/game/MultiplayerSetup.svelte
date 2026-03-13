@@ -116,7 +116,7 @@
 </script>
 
 <div class="shadow-grey mt-6 flex flex-col gap-4 rounded-xl p-4 ring ring-gray-600">
-	<h3 class="text-lg">Moninpeli</h3>
+	<h3 class="text-lg">Monen laitteen peli (Beta)</h3>
 
 	{#if !$multiplayerStore.lobby}
 		<div class="flex gap-2">
@@ -220,7 +220,7 @@
 						onclick={() => {
 							startLobbyGame();
 						}}
-						disabled={$multiplayerStore.lobby.players.length < 2}>Aloita moninpeli</Button
+						disabled={$multiplayerStore.lobby.players.length < 2}>Aloita monen laitteen peli</Button
 					>
 				</div>
 			{:else if !$multiplayerStore.isHost && !$multiplayerStore.lobby.inGame}
