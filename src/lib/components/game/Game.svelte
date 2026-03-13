@@ -548,6 +548,8 @@
 		{/if}
 		<PlayerEditor
 			players={$gameState.players}
+			mode={$multiplayerStore.mode === 'multi' ? 'multi' : 'single'}
+			inviteCode={$multiplayerStore.lobby?.code ?? null}
 			onSubmit={(players) => {
 				gameState.update((state) => ({ ...state, players }));
 			}}

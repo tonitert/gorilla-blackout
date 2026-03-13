@@ -11,9 +11,11 @@
 		startLobbyGame,
 		updateLobbyPlayer
 	} from '$lib/multiplayer/client';
+	import { getJoinCodeFromSearch } from '$lib/multiplayer/invite';
 	import { isValidLobbyCode, normalizeLobbyCode } from '$lib/multiplayer/lobbyCode';
 	import { gameStateStore } from '$lib/gameState.svelte';
 	import { playerImages } from './playerImages';
+	import { Player } from '$lib/player';
 
 	type SetupMode = 'host' | 'join' | null;
 	type PlayerImage = keyof typeof playerImages | 'default';
@@ -23,6 +25,7 @@
 	let error = $state('');
 	let localName = $state('Pelaaja');
 	let localImage = $state<PlayerImage>('default');
+	let appliedJoinCode = $state(false);
 
 	const usedImages = $derived.by(() => {
 		const localPlayerId = $multiplayerStore.playerId;
@@ -41,6 +44,22 @@
 		if (!localPlayer) return;
 		localName = localPlayer.name;
 		localImage = (localPlayer.image in playerImages ? localPlayer.image : 'default') as PlayerImage;
+	});
+
+	$effect(() => {
+		if (appliedJoinCode || typeof window === 'undefined' || $multiplayerStore.lobby) {
+			return;
+		}
+
+		const joinCode = getJoinCodeFromSearch(window.location.search);
+		if (!joinCode) {
+			appliedJoinCode = true;
+			return;
+		}
+
+		appliedJoinCode = true;
+		setupMode = 'join';
+		code = joinCode;
 	});
 
 	async function onCreate() {
@@ -85,6 +104,14 @@
 		} catch {
 			error = 'Nimen tallennus epäonnistui';
 		}
+	}
+
+	function getLobbyPlayersForGame() {
+		return (
+			$multiplayerStore.lobby?.players.map(
+				(player) => new Player(player.name, player.image as PlayerImage, player.position, player.id)
+			) ?? []
+		);
 	}
 </script>
 
@@ -204,18 +231,24 @@
 					<Button
 						onclick={() => {
 							gameStateStore.update((state) => ({
-								...state,
-								players: $multiplayerStore.lobby?.players ?? state.players,
-								currentTurnPlayerId:
-									$multiplayerStore.lobby?.players[0]?.id ?? state.currentTurnPlayerId,
-								turnInProgress: false,
-								turnOwnerId: null,
-								phase: 'idle',
-								activeTilePosition: null,
-								activeTileTrigger: null,
-								activeTileSessionId: 0,
-								diceValue: null,
-								inGame: true
+								...(state.inGame
+									? state
+									: {
+											...state,
+											players: getLobbyPlayersForGame(),
+											currentTurnPlayerId:
+												state.currentTurnPlayerId ??
+												$multiplayerStore.lobby?.players[0]?.id ??
+												null,
+											turnInProgress: false,
+											turnOwnerId: null,
+											phase: 'idle',
+											activeTilePosition: null,
+											activeTileTrigger: null,
+											activeTileSessionId: 0,
+											diceValue: null,
+											inGame: true
+										})
 							}));
 						}}>Siirry peliin</Button
 					>

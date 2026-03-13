@@ -30,17 +30,21 @@
 			(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__ = () => {
 				const lobby = get(multiplayerStore).lobby;
 				gameState.update((state) => ({
-					...state,
-					players: (lobby?.players as GameState['players'] | undefined) ?? state.players,
-					currentTurnPlayerId: lobby?.players[0]?.id ?? state.currentTurnPlayerId,
-					turnInProgress: false,
-					turnOwnerId: null,
-					phase: 'idle',
-					activeTilePosition: null,
-					activeTileTrigger: null,
-					activeTileSessionId: 0,
-					diceValue: null,
-					inGame: true
+					...(state.inGame
+						? state
+						: {
+								...state,
+								players: (lobby?.players as GameState['players'] | undefined) ?? state.players,
+								currentTurnPlayerId: state.currentTurnPlayerId ?? lobby?.players[0]?.id ?? null,
+								turnInProgress: false,
+								turnOwnerId: null,
+								phase: 'idle',
+								activeTilePosition: null,
+								activeTileTrigger: null,
+								activeTileSessionId: 0,
+								diceValue: null,
+								inGame: true
+							})
 				}));
 			};
 			(
