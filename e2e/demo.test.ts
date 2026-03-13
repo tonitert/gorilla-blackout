@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 type ExposedGameState = {
-	players: { id?: string; name?: string; position: number }[];
+	players: { id?: string; name?: string; image?: string; position: number }[];
 	turn: number;
 	phase: 'idle' | 'rolling' | 'tile';
 	activeTilePosition: number | null;
@@ -118,16 +118,16 @@ async function startMultiplayerGameInBrowser(
 	await hostPage.goto(url);
 	await guestPage.goto(url);
 
-	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
 	const code = await createLobbyAndReadCode(hostPage);
 	await savePlayerName(hostPage, 'Host');
 
-	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
 	await joinLobbyWithCode(guestPage, code);
 	await savePlayerName(guestPage, 'Guest');
-	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Aloita monen laitteen peli' }).click();
 
 	await hostPage.evaluate(() => {
 		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.();
@@ -149,7 +149,7 @@ async function startMultiplayerGameInBrowser(
 			guestPlayerId = state.players.find((player) => player.name === 'Guest')?.id ?? null;
 
 			return Boolean(hostPlayerId && guestPlayerId);
-		})
+		}, { timeout: 15_000 })
 		.toBe(true);
 
 	return {
@@ -173,15 +173,15 @@ function characterToggle(page: Page, character: string) {
 test('can switch between single and multiplayer setup modes', async ({ page }) => {
 	await page.goto('/');
 	await expect(page.getByRole('button', { name: 'Yksi laite' })).toBeVisible();
-	await page.getByRole('button', { name: 'Moninpeli' }).click();
-	await expect(page.getByRole('heading', { name: 'Moninpeli' })).toBeVisible();
+	await page.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
+	await expect(page.getByRole('heading', { name: 'Monen laitteen peli (Beta)' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Hostaa peli' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Liity peliin' })).toBeVisible();
 });
 
 test('join flow asks for code only after selecting join mode', async ({ page }) => {
 	await page.goto('/');
-	await page.getByRole('button', { name: 'Moninpeli' }).click();
+	await page.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await expect(page.locator('#multi-code')).toHaveCount(0);
 	await page.getByRole('button', { name: 'Liity peliin' }).click();
 	await expect(page.locator('#multi-code')).toBeVisible();
@@ -375,11 +375,11 @@ test('multiplayer enforces unique character selection across sessions', async ({
 	await hostPage.goto('/');
 	await guestPage.goto('/');
 
-	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
 	const code = await createLobbyAndReadCode(hostPage);
 
-	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
 	await joinLobbyWithCode(guestPage, code);
 
@@ -405,17 +405,17 @@ test('keeps deterministic multiplayer turns synchronized on both screens', async
 	await hostPage.goto('/?e2e=1');
 	await guestPage.goto('/?e2e=1');
 
-	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
 	const code = await createLobbyAndReadCode(hostPage);
 	await savePlayerName(hostPage, 'Host');
 
-	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
 	await joinLobbyWithCode(guestPage, code);
 	await savePlayerName(guestPage, 'Guest');
 
-	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Aloita monen laitteen peli' }).click();
 
 	await hostPage.evaluate(() => {
 		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.();
@@ -481,17 +481,17 @@ test('keeps multiplayer movement synchronized with random dice throws', async ({
 	await hostPage.goto('/?e2e=1&randomDice=1');
 	await guestPage.goto('/?e2e=1&randomDice=1');
 
-	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
 	const code = await createLobbyAndReadCode(hostPage);
 	await savePlayerName(hostPage, 'Host');
 
-	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
 	await joinLobbyWithCode(guestPage, code);
 	await savePlayerName(guestPage, 'Guest');
 
-	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Aloita monen laitteen peli' }).click();
 
 	await hostPage.evaluate(() => {
 		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.();
@@ -571,17 +571,17 @@ test('shows the same dice value on screen as server-calculated roll', async ({ b
 	await hostPage.goto('/?e2e=1&randomDice=1');
 	await guestPage.goto('/?e2e=1&randomDice=1');
 
-	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
 	const code = await createLobbyAndReadCode(hostPage);
 	await savePlayerName(hostPage, 'Host');
 
-	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
 	await joinLobbyWithCode(guestPage, code);
 	await savePlayerName(guestPage, 'Guest');
 
-	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Aloita monen laitteen peli' }).click();
 
 	await hostPage.evaluate(() => {
 		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.();
@@ -638,17 +638,17 @@ test('non-host sees waiting message and host does not', async ({ browser }) => {
 	await hostPage.goto('/');
 	await guestPage.goto('/');
 
-	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
 	const code = await createLobbyAndReadCode(hostPage);
 
-	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
 	await joinLobbyWithCode(guestPage, code);
 
 	await expect(guestPage.getByText('Odotetaan pelin alkamista..')).toBeVisible({ timeout: 10_000 });
 	await expect(hostPage.getByText('Odotetaan pelin alkamista..')).toHaveCount(0);
-	await expect(hostPage.getByRole('button', { name: 'Aloita moninpeli' })).toBeVisible();
+	await expect(hostPage.getByRole('button', { name: 'Aloita monen laitteen peli' })).toBeVisible();
 
 	await hostContext.close();
 	await guestContext.close();
@@ -663,11 +663,11 @@ test('character selection auto-saves without Tallenna button', async ({ browser 
 	await hostPage.goto('/');
 	await guestPage.goto('/');
 
-	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
 	const code = await createLobbyAndReadCode(hostPage);
 
-	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
 	await joinLobbyWithCode(guestPage, code);
 
@@ -689,6 +689,61 @@ test('character selection auto-saves without Tallenna button', async ({ browser 
 
 	await hostContext.close();
 	await guestContext.close();
+});
+
+test('single-device player menu can quit the game', async ({ page }) => {
+	await page.goto('/?e2e=1');
+	await page.getByLabel('Nimi').nth(0).fill('Alpha');
+	await page.getByLabel('Nimi').nth(1).fill('Beta');
+	await page.getByRole('button', { name: 'Aloita peli' }).click();
+	await expect(page.locator('.game')).toBeVisible({ timeout: 15_000 });
+
+	await page.locator('button').filter({ hasText: 'Muokkaa pelaajia' }).last().click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+	await page.getByRole('button', { name: 'Poistu pelistä' }).click();
+
+	await expect(page.locator('.game')).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Aloita peli' })).toBeVisible({ timeout: 15_000 });
+});
+
+test('single-device player menu supports rename, character change, and remove', async ({ page }) => {
+	await page.goto('/?e2e=1');
+	await page.getByLabel('Nimi').nth(0).fill('Alpha');
+	await page.getByLabel('Nimi').nth(1).fill('Beta');
+	await page.getByRole('button', { name: 'Lisää pelaaja' }).click();
+	await page.getByLabel('Nimi').nth(2).fill('Gamma');
+	await page.getByRole('button', { name: 'Aloita peli' }).click();
+	await expect(page.locator('.game')).toBeVisible({ timeout: 15_000 });
+
+	await page.locator('button').filter({ hasText: 'Muokkaa pelaajia' }).last().click();
+	await expect(page.getByRole('dialog')).toBeVisible();
+
+	await page.getByLabel('Nimi').first().fill('AlphaUpdated');
+	await page.getByLabel('Nimi').first().blur();
+
+	await page.getByRole('button', { name: 'Valitse pelihahmo' }).first().click();
+	await characterToggle(page, 'Kalja').click();
+
+	const beforeRemoveState = await getExposedState(page);
+	expect(beforeRemoveState.players.length).toBe(3);
+
+	await page.getByRole('button', { name: 'Poista' }).nth(1).click();
+	await page.getByRole('button', { name: 'Tallenna' }).click();
+
+	await expect
+		.poll(async () => {
+			const state = await getExposedState(page);
+			return {
+				playerCount: state.players.length,
+				hasUpdatedName: state.players.some((player) => player.name === 'AlphaUpdated'),
+				hasUpdatedImage: state.players.some((player) => player.image === 'Kalja')
+			};
+		})
+		.toEqual({
+			playerCount: 2,
+			hasUpdatedName: true,
+			hasUpdatedImage: true
+		});
 });
 
 test('players can join an in-progress game from the invite link', async ({ browser }) => {
@@ -793,17 +848,17 @@ test('tileState syncs across multiplayer players when on a tile', async ({ brows
 	await hostPage.goto('/?e2e=1');
 	await guestPage.goto('/?e2e=1');
 
-	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
 	const code = await createLobbyAndReadCode(hostPage);
 	await savePlayerName(hostPage, 'Host');
 
-	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
 	await joinLobbyWithCode(guestPage, code);
 	await savePlayerName(guestPage, 'Guest');
 
-	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Aloita monen laitteen peli' }).click();
 
 	await hostPage.evaluate(() =>
 		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.()
@@ -881,17 +936,17 @@ test('guest sees the nested 50/50 spinner when the host updates its stage', asyn
 	await hostPage.goto('/?e2e=1');
 	await guestPage.goto('/?e2e=1');
 
-	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
 	const code = await createLobbyAndReadCode(hostPage);
 	await savePlayerName(hostPage, 'Host');
 
-	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
 	await joinLobbyWithCode(guestPage, code);
 	await savePlayerName(guestPage, 'Guest');
 
-	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Aloita monen laitteen peli' }).click();
 
 	await hostPage.evaluate(() =>
 		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.()
@@ -984,17 +1039,17 @@ test('multiplayer Raju wheel intro resolves on both screens without getting stuc
 	await hostPage.goto('/?e2e=1&playTiles=1');
 	await guestPage.goto('/?e2e=1&playTiles=1');
 
-	await hostPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
 	const code = await createLobbyAndReadCode(hostPage);
 	await savePlayerName(hostPage, 'Host');
 
-	await guestPage.getByRole('button', { name: 'Moninpeli' }).click();
+	await guestPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
 	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
 	await joinLobbyWithCode(guestPage, code);
 	await savePlayerName(guestPage, 'Guest');
 
-	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
+	await hostPage.getByRole('button', { name: 'Aloita monen laitteen peli' }).click();
 
 	await hostPage.evaluate(() =>
 		(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.()

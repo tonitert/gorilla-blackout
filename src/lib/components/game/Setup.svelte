@@ -82,7 +82,7 @@
 		>
 		<Button
 			variant={$multiplayerStore.mode === 'multi' ? 'default' : 'outline'}
-			onclick={() => setMode('multi')}>Moninpeli</Button
+			onclick={() => setMode('multi')}>Monen laitteen peli (Beta)</Button
 		>
 	</div>
 
