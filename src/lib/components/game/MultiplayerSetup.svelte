@@ -12,6 +12,7 @@
 		updateLobbyPlayer
 	} from '$lib/multiplayer/client';
 	import { getJoinCodeFromSearch } from '$lib/multiplayer/invite';
+	import { loadRejoinCode } from '$lib/multiplayer/rejoin';
 	import { isValidLobbyCode, normalizeLobbyCode } from '$lib/multiplayer/lobbyCode';
 	import { gameStateStore } from '$lib/gameState.svelte';
 	import { playerImages } from './playerImages';
@@ -26,6 +27,7 @@
 	let localName = $state('Pelaaja');
 	let localImage = $state<PlayerImage>('default');
 	let appliedJoinCode = $state(false);
+	let rejoinCode = $state<string | null>(null);
 
 	const usedImages = $derived.by(() => {
 		const localPlayerId = $multiplayerStore.playerId;
@@ -34,6 +36,23 @@
 				.filter((player) => player.id !== localPlayerId && player.image !== 'default')
 				.map((player) => player.image)
 		);
+	});
+
+	$effect(() => {
+		if (typeof window === 'undefined' || appliedJoinCode) return;
+
+		loadRejoinCode()
+			.then((storedCode) => {
+				if (appliedJoinCode || !storedCode) return;
+				rejoinCode = storedCode;
+				if (!$multiplayerStore.lobby && setupMode === null) {
+					setupMode = 'join';
+					code = storedCode;
+				}
+			})
+			.catch(() => {
+				rejoinCode = null;
+			});
 	});
 
 	$effect(() => {
@@ -129,6 +148,17 @@
 				onclick={() => (setupMode = 'join')}>Liity peliin</Button
 			>
 		</div>
+
+		{#if rejoinCode}
+			<Button
+				variant="secondary"
+				data-testid="rejoin-lobby"
+				onclick={() => {
+					setupMode = 'join';
+					code = rejoinCode ?? '';
+				}}>Liity aiempaan peliin ({rejoinCode})</Button
+			>
+		{/if}
 
 		{#if setupMode === 'host'}
 			<Button onclick={onCreate}>Luo peli</Button>

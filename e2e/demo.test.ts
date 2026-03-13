@@ -143,13 +143,16 @@ async function startMultiplayerGameInBrowser(
 	let guestPlayerId: string | null = null;
 
 	await expect
-		.poll(async () => {
-			const state = await getExposedState(hostPage);
-			hostPlayerId = state.players.find((player) => player.name === 'Host')?.id ?? null;
-			guestPlayerId = state.players.find((player) => player.name === 'Guest')?.id ?? null;
+		.poll(
+			async () => {
+				const state = await getExposedState(hostPage);
+				hostPlayerId = state.players.find((player) => player.name === 'Host')?.id ?? null;
+				guestPlayerId = state.players.find((player) => player.name === 'Guest')?.id ?? null;
 
-			return Boolean(hostPlayerId && guestPlayerId);
-		}, { timeout: 15_000 })
+				return Boolean(hostPlayerId && guestPlayerId);
+			},
+			{ timeout: 15_000 }
+		)
 		.toBe(true);
 
 	return {
@@ -177,6 +180,43 @@ test('can switch between single and multiplayer setup modes', async ({ page }) =
 	await expect(page.getByRole('heading', { name: 'Monen laitteen peli (Beta)' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Hostaa peli' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Liity peliin' })).toBeVisible();
+});
+
+test('rejoin helper stores join code and lets player join from front page after reload', async ({
+	browser
+}) => {
+	test.setTimeout(90_000);
+
+	const hostContext = await browser.newContext();
+	const rejoinContext = await browser.newContext();
+	const hostPage = await hostContext.newPage();
+	const rejoinPage = await rejoinContext.newPage();
+
+	await hostPage.goto('/?e2e=1');
+	await rejoinPage.goto('/?e2e=1');
+
+	await hostPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
+	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
+	const code = await createLobbyAndReadCode(hostPage);
+
+	await rejoinPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
+	await rejoinPage.getByRole('button', { name: 'Liity peliin' }).click();
+	await joinLobbyWithCode(rejoinPage, code);
+	await hostPage.getByRole('button', { name: 'Aloita monen laitteen peli' }).click();
+
+	await rejoinPage.reload();
+	await expect(
+		rejoinPage.getByAltText('Gorilla Blackout - rankka juomapeli opiskelijoille!')
+	).toBeVisible();
+	await rejoinPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
+	await expect(rejoinPage.getByTestId('rejoin-lobby')).toContainText(code);
+	await rejoinPage.getByTestId('rejoin-lobby').click();
+	await expect(rejoinPage.locator('#multi-code')).toHaveValue(code);
+	await joinLobbyWithCode(rejoinPage, code);
+	await expect(rejoinPage.getByText(`Koodi: ${code}`)).toBeVisible({ timeout: 15_000 });
+
+	await hostContext.close();
+	await rejoinContext.close();
 });
 
 test('join flow asks for code only after selecting join mode', async ({ page }) => {
@@ -706,7 +746,9 @@ test('single-device player menu can quit the game', async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Aloita peli' })).toBeVisible({ timeout: 15_000 });
 });
 
-test('single-device player menu supports rename, character change, and remove', async ({ page }) => {
+test('single-device player menu supports rename, character change, and remove', async ({
+	page
+}) => {
 	await page.goto('/?e2e=1');
 	await page.getByLabel('Nimi').nth(0).fill('Alpha');
 	await page.getByLabel('Nimi').nth(1).fill('Beta');
