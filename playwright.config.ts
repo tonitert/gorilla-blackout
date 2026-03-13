@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
 	testDir: 'e2e',
+	fullyParallel: true,
 	workers: 4,
 	retries: 1,
 	use: {
@@ -13,13 +14,14 @@ export default defineConfig({
 				'pnpm --dir backend install --frozen-lockfile && pnpm --dir backend build && pnpm --dir backend start',
 			port: 3001,
 			timeout: 120_000,
-			reuseExistingServer: !process.env.CI
+			reuseExistingServer: false
 		},
 		{
-			command: 'pnpm run build && pnpm run preview -- --port 4173',
+			command:
+				'VITE_PUBLIC_BACKEND_URL=http://localhost:3001 pnpm run build && VITE_PUBLIC_BACKEND_URL=http://localhost:3001 pnpm run preview -- --port 4173',
 			port: 4173,
-			timeout: 180_000,
-			reuseExistingServer: !process.env.CI
+			timeout: 300_000,
+			reuseExistingServer: false
 		}
 	]
 });
