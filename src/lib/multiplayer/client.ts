@@ -15,7 +15,7 @@ type Session = {
 	lobby: Lobby | null;
 };
 
-const backendUrl = import.meta.env.PUBLIC_BACKEND_URL ?? 'http://localhost:3001';
+const backendUrl = import.meta.env.PUBLIC_BACKEND_URL ?? 'https://blackout.beer';
 
 const defaultSession: Session = {
 	mode: 'single',
