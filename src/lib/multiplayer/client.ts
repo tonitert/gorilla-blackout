@@ -1,6 +1,7 @@
 import { writable, get } from 'svelte/store';
 import { io, type Socket } from 'socket.io-client';
 import { clearGameState, gameStateStore, type GameState } from '$lib/gameState.svelte';
+import { clearRejoinCode, saveRejoinCode } from './rejoin';
 
 export type GameMode = 'single' | 'multi';
 
@@ -64,6 +65,7 @@ export async function createLobby(name: string, image: string) {
 		isHost: true,
 		lobby: payload.lobby
 	}));
+	await saveRejoinCode(payload.code);
 	connect();
 }
 
@@ -80,6 +82,7 @@ export async function joinLobby(code: string, name: string, image: string) {
 		isHost: false,
 		lobby: payload.lobby
 	}));
+	await saveRejoinCode(payload.code);
 	connect();
 }
 
@@ -110,6 +113,7 @@ export async function removeLobbyPlayer(targetPlayerId: string) {
 	if (payload.removedPlayerId === session.playerId || payload.lobbyClosed) {
 		disconnectAndResetSession('single');
 		clearGameState();
+		await clearRejoinCode();
 		return;
 	}
 
@@ -133,6 +137,7 @@ export async function quitCurrentGame() {
 
 	disconnectAndResetSession('single');
 	clearGameState();
+	await clearRejoinCode();
 }
 
 function connect() {
@@ -149,6 +154,7 @@ function connect() {
 	socket.on('lobby:closed', () => {
 		disconnectAndResetSession('single');
 		clearGameState();
+		void clearRejoinCode();
 	});
 	socket.on('lobby:player-removed', (payload: { playerId?: string }) => {
 		const removedPlayerId = payload?.playerId;
@@ -156,6 +162,7 @@ function connect() {
 		if (removedPlayerId !== session.playerId) return;
 		disconnectAndResetSession('single');
 		clearGameState();
+		void clearRejoinCode();
 	});
 	socket.on('game:state', (state: GameState) => {
 		const enteringRollingPhase =
