@@ -28,6 +28,7 @@
 	let localImage = $state<PlayerImage>('default');
 	let appliedJoinCode = $state(false);
 	let rejoinCode = $state<string | null>(null);
+	let loadedRejoinCode = $state(false);
 
 	const usedImages = $derived.by(() => {
 		const localPlayerId = $multiplayerStore.playerId;
@@ -39,16 +40,13 @@
 	});
 
 	$effect(() => {
-		if (typeof window === 'undefined' || appliedJoinCode) return;
+		if (typeof window === 'undefined' || loadedRejoinCode) return;
+		loadedRejoinCode = true;
 
 		loadRejoinCode()
 			.then((storedCode) => {
-				if (appliedJoinCode || !storedCode) return;
+				if (!storedCode) return;
 				rejoinCode = storedCode;
-				if (!$multiplayerStore.lobby && setupMode === null) {
-					setupMode = 'join';
-					code = storedCode;
-				}
 			})
 			.catch(() => {
 				rejoinCode = null;
