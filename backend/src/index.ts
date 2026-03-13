@@ -51,6 +51,7 @@ type Lobby = {
 };
 
 const lobbies = new Map<string, Lobby>();
+const maxLateJoinPosition = 54;
 
 const generateCode = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 
@@ -78,6 +79,29 @@ const createInitialGameState = (lobby: Lobby): GameState => ({
 	version: 1,
 	versionAvailable: null
 });
+
+function calculateLateJoinPosition(players: Player[]): number {
+	if (players.length === 0) {
+		return 0;
+	}
+
+	return Math.min(
+		Math.floor(players.reduce((sum, player) => sum + player.position, 0) / players.length),
+		maxLateJoinPosition
+	);
+}
+
+function broadcastLobby(lobby: Lobby) {
+	io.to(lobby.code).emit('lobby:update', publicLobby(lobby));
+}
+
+function broadcastGameState(lobby: Lobby) {
+	if (!lobby.state) {
+		return;
+	}
+
+	io.to(lobby.code).emit('game:state', lobby.state);
+}
 
 function hasDuplicateImage(lobby: Lobby, playerId: string, image: string): boolean {
 	if (image === 'default') return false;
@@ -112,13 +136,24 @@ app.post<{ Params: { code: string } }>('/api/lobbies/:code/join', async (request
 	const code = request.params.code.toUpperCase();
 	const lobby = lobbies.get(code);
 	if (!lobby) return reply.code(404).send({ error: 'Lobby not found' });
-	if (lobby.inGame) return reply.code(409).send({ error: 'Game already started' });
 	if (hasDuplicateImage(lobby, '', parsed.data.image)) {
 		return reply.code(409).send({ error: 'Character already selected' });
 	}
-	const player: Player = { ...parsed.data, id: randomUUID(), position: 0 };
+	const currentPlayers = lobby.state?.players ?? lobby.players;
+	const player: Player = {
+		...parsed.data,
+		id: randomUUID(),
+		position: lobby.inGame ? calculateLateJoinPosition(currentPlayers) : 0
+	};
 	lobby.players.push(player);
-	io.to(code).emit('lobby:update', publicLobby(lobby));
+	if (lobby.state) {
+		lobby.state = {
+			...lobby.state,
+			players: [...lobby.state.players, player]
+		};
+	}
+	broadcastLobby(lobby);
+	broadcastGameState(lobby);
 	return { code, playerId: player.id, lobby: publicLobby(lobby) };
 });
 
@@ -128,18 +163,21 @@ app.post<{ Params: { code: string }; Body: { playerId?: string; name?: string; i
 		const code = request.params.code.toUpperCase();
 		const lobby = lobbies.get(code);
 		if (!lobby) return reply.code(404).send({ error: 'Lobby not found' });
-		if (lobby.inGame) return reply.code(409).send({ error: 'Game already started' });
 		const playerId = request.body?.playerId;
 		if (!playerId) return reply.code(400).send({ error: 'playerId required' });
 
 		const player = lobby.players.find((p) => p.id === playerId);
 		if (!player) return reply.code(404).send({ error: 'Player not found' });
+		const statePlayer = lobby.state?.players.find((p) => p.id === playerId);
 
 		if (request.body.name !== undefined) {
 			const name = request.body.name.trim();
 			if (name.length < 1 || name.length > 100)
 				return reply.code(400).send({ error: 'Invalid name' });
 			player.name = name;
+			if (statePlayer) {
+				statePlayer.name = name;
+			}
 		}
 
 		if (request.body.image !== undefined) {
@@ -149,9 +187,13 @@ app.post<{ Params: { code: string }; Body: { playerId?: string; name?: string; i
 				return reply.code(409).send({ error: 'Character already selected' });
 			}
 			player.image = image;
+			if (statePlayer) {
+				statePlayer.image = image;
+			}
 		}
 
-		io.to(code).emit('lobby:update', publicLobby(lobby));
+		broadcastLobby(lobby);
+		broadcastGameState(lobby);
 		return { lobby: publicLobby(lobby) };
 	}
 );
@@ -214,6 +256,7 @@ io.on('connection', (socket) => {
 		if (allowedActor && allowedActor !== playerId) return;
 
 		lobby.state = parsedState.data;
+		lobby.players = parsedState.data.players.map((player) => ({ ...player }));
 		if (lobby.state.diceValue !== null) {
 			lobby.pendingRoll = null;
 		}

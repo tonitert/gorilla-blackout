@@ -47,8 +47,16 @@ function getExpectedLandingPosition(startPosition: number, roll: number): number
 }
 
 async function savePlayerName(page: Page, name: string) {
+	const saveResponse = page.waitForResponse(
+		(response) =>
+			response.url().includes('/api/lobbies/') &&
+			response.url().endsWith('/player') &&
+			response.request().method() === 'POST' &&
+			response.status() === 200
+	);
 	await page.getByLabel('Nimi').first().fill(name);
 	await page.getByLabel('Nimi').first().blur();
+	await saveResponse;
 }
 
 async function startSingleDeviceGame(page: Page, url = '/?e2e=1') {
@@ -119,7 +127,6 @@ async function startMultiplayerGameInBrowser(
 	await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
 	await joinLobbyWithCode(guestPage, code);
 	await savePlayerName(guestPage, 'Guest');
-
 	await hostPage.getByRole('button', { name: 'Aloita moninpeli' }).click();
 
 	await hostPage.evaluate(() => {
@@ -150,6 +157,7 @@ async function startMultiplayerGameInBrowser(
 		guestContext,
 		hostPage,
 		guestPage,
+		code,
 		hostPlayerId,
 		guestPlayerId
 	};
@@ -681,6 +689,98 @@ test('character selection auto-saves without Tallenna button', async ({ browser 
 
 	await hostContext.close();
 	await guestContext.close();
+});
+
+test('players can join an in-progress game from the invite link', async ({ browser }) => {
+	test.setTimeout(90_000);
+
+	const { hostContext, guestContext, hostPage, guestPage, code, hostPlayerId, guestPlayerId } =
+		await startMultiplayerGameInBrowser(browser, '/?e2e=1');
+
+	await hostPage.evaluate(() => {
+		(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+	});
+
+	await expect
+		.poll(async () => {
+			const hostState = await getExposedState(hostPage);
+			const guestState = await getExposedState(guestPage);
+
+			return {
+				hostPositions: hostState.players.map((player) => player.position),
+				guestPositions: guestState.players.map((player) => player.position),
+				currentTurnPlayerId: hostState.currentTurnPlayerId,
+				playerCount: hostState.players.length
+			};
+		})
+		.toEqual({
+			hostPositions: [6, 0],
+			guestPositions: [6, 0],
+			currentTurnPlayerId: guestPlayerId,
+			playerCount: 2
+		});
+
+	await hostPage.locator('button').filter({ hasText: 'Muokkaa pelaajia' }).last().click();
+	await expect(hostPage.getByText(code, { exact: false })).toBeVisible();
+	const inviteQrCode = hostPage.locator(`img[alt="Liity peliin koodilla ${code}"]`);
+	await expect(inviteQrCode).toBeVisible();
+	await expect(inviteQrCode).toHaveAttribute('src', /^data:image\/png;base64,/);
+	await hostPage.keyboard.press('Escape');
+
+	const lateJoinerContext = await browser.newContext();
+	const lateJoinerPage = await lateJoinerContext.newPage();
+	await lateJoinerPage.goto(`/?e2e=1&join=${code}`);
+
+	await expect(lateJoinerPage.locator('#multi-code')).toBeVisible();
+	await expect(lateJoinerPage.locator('#multi-code')).toHaveValue(code);
+	await joinLobbyWithCode(lateJoinerPage, code);
+	const lateJoinerNextTurnButton = lateJoinerPage
+		.locator('button')
+		.filter({ hasText: 'Seuraava vuoro' })
+		.first();
+
+	let lateJoinerId: string | null = null;
+
+	await expect
+		.poll(async () => {
+			const hostState = await getExposedState(hostPage);
+			const guestState = await getExposedState(guestPage);
+			lateJoinerId =
+				hostState.players.find(
+					(player) => player.id !== hostPlayerId && player.id !== guestPlayerId
+				)?.id ?? null;
+
+			return {
+				hostCount: hostState.players.length,
+				guestCount: guestState.players.length,
+				lateJoinerPosition:
+					hostState.players.find((player) => player.id === lateJoinerId)?.position ?? null,
+				currentTurnPlayerId: hostState.currentTurnPlayerId
+			};
+		})
+		.toEqual({
+			hostCount: 3,
+			guestCount: 3,
+			lateJoinerPosition: 3,
+			currentTurnPlayerId: guestPlayerId
+		});
+	await expect(lateJoinerNextTurnButton).toBeDisabled();
+
+	await guestPage.evaluate(() => {
+		(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+	});
+
+	await expect
+		.poll(async () => {
+			const hostState = await getExposedState(hostPage);
+			return hostState.currentTurnPlayerId;
+		})
+		.toBe(lateJoinerId);
+	await expect(lateJoinerNextTurnButton).toBeEnabled();
+
+	await hostContext.close();
+	await guestContext.close();
+	await lateJoinerContext.close();
 });
 
 test('tileState syncs across multiplayer players when on a tile', async ({ browser }) => {

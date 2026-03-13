@@ -8,6 +8,7 @@
 	import Announcements from './Announcements.svelte';
 	import MultiplayerSetup from './MultiplayerSetup.svelte';
 	import { multiplayerStore, setMode } from '$lib/multiplayer/client';
+	import { getJoinCodeFromSearch } from '$lib/multiplayer/invite';
 
 	let {
 		onStart,
@@ -16,6 +17,23 @@
 		onStart: (players: PlayerList) => void;
 		pendingState: GameState | 'loading' | undefined;
 	} = $props();
+
+	let appliedJoinCode = $state(false);
+
+	$effect(() => {
+		if (appliedJoinCode || typeof window === 'undefined' || $multiplayerStore.lobby) {
+			return;
+		}
+
+		const joinCode = getJoinCodeFromSearch(window.location.search);
+		if (!joinCode) {
+			appliedJoinCode = true;
+			return;
+		}
+
+		appliedJoinCode = true;
+		setMode('multi');
+	});
 </script>
 
 <div class="m-auto flex max-w-200 flex-col space-y-6 p-5">

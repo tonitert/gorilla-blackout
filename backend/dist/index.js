@@ -34,6 +34,7 @@ const gameStateSchema = z.object({
     versionAvailable: z.string().nullable()
 });
 const lobbies = new Map();
+const maxLateJoinPosition = 54;
 const generateCode = () => Math.random().toString(36).slice(2, 8).toUpperCase();
 const publicLobby = (lobby) => ({
     code: lobby.code,
@@ -58,6 +59,21 @@ const createInitialGameState = (lobby) => ({
     version: 1,
     versionAvailable: null
 });
+function calculateLateJoinPosition(players) {
+    if (players.length === 0) {
+        return 0;
+    }
+    return Math.min(Math.floor(players.reduce((sum, player) => sum + player.position, 0) / players.length), maxLateJoinPosition);
+}
+function broadcastLobby(lobby) {
+    io.to(lobby.code).emit('lobby:update', publicLobby(lobby));
+}
+function broadcastGameState(lobby) {
+    if (!lobby.state) {
+        return;
+    }
+    io.to(lobby.code).emit('game:state', lobby.state);
+}
 function hasDuplicateImage(lobby, playerId, image) {
     if (image === 'default')
         return false;
@@ -92,14 +108,24 @@ app.post('/api/lobbies/:code/join', async (request, reply) => {
     const lobby = lobbies.get(code);
     if (!lobby)
         return reply.code(404).send({ error: 'Lobby not found' });
-    if (lobby.inGame)
-        return reply.code(409).send({ error: 'Game already started' });
     if (hasDuplicateImage(lobby, '', parsed.data.image)) {
         return reply.code(409).send({ error: 'Character already selected' });
     }
-    const player = { ...parsed.data, id: randomUUID(), position: 0 };
+    const currentPlayers = lobby.state?.players ?? lobby.players;
+    const player = {
+        ...parsed.data,
+        id: randomUUID(),
+        position: lobby.inGame ? calculateLateJoinPosition(currentPlayers) : 0
+    };
     lobby.players.push(player);
-    io.to(code).emit('lobby:update', publicLobby(lobby));
+    if (lobby.state) {
+        lobby.state = {
+            ...lobby.state,
+            players: [...lobby.state.players, player]
+        };
+    }
+    broadcastLobby(lobby);
+    broadcastGameState(lobby);
     return { code, playerId: player.id, lobby: publicLobby(lobby) };
 });
 app.post('/api/lobbies/:code/player', async (request, reply) => {
@@ -107,19 +133,21 @@ app.post('/api/lobbies/:code/player', async (request, reply) => {
     const lobby = lobbies.get(code);
     if (!lobby)
         return reply.code(404).send({ error: 'Lobby not found' });
-    if (lobby.inGame)
-        return reply.code(409).send({ error: 'Game already started' });
     const playerId = request.body?.playerId;
     if (!playerId)
         return reply.code(400).send({ error: 'playerId required' });
     const player = lobby.players.find((p) => p.id === playerId);
     if (!player)
         return reply.code(404).send({ error: 'Player not found' });
+    const statePlayer = lobby.state?.players.find((p) => p.id === playerId);
     if (request.body.name !== undefined) {
         const name = request.body.name.trim();
         if (name.length < 1 || name.length > 100)
             return reply.code(400).send({ error: 'Invalid name' });
         player.name = name;
+        if (statePlayer) {
+            statePlayer.name = name;
+        }
     }
     if (request.body.image !== undefined) {
         const image = request.body.image.trim();
@@ -129,8 +157,12 @@ app.post('/api/lobbies/:code/player', async (request, reply) => {
             return reply.code(409).send({ error: 'Character already selected' });
         }
         player.image = image;
+        if (statePlayer) {
+            statePlayer.image = image;
+        }
     }
-    io.to(code).emit('lobby:update', publicLobby(lobby));
+    broadcastLobby(lobby);
+    broadcastGameState(lobby);
     return { lobby: publicLobby(lobby) };
 });
 app.get('/api/lobbies/:code', async (request, reply) => {
@@ -189,6 +221,7 @@ io.on('connection', (socket) => {
         if (allowedActor && allowedActor !== playerId)
             return;
         lobby.state = parsedState.data;
+        lobby.players = parsedState.data.players.map((player) => ({ ...player }));
         if (lobby.state.diceValue !== null) {
             lobby.pendingRoll = null;
         }
