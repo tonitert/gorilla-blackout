@@ -31,6 +31,7 @@
 	import RajuOsoitin from '$lib/assets/RajuOsoitin.png';
 	import animationUrl from '$lib/assets/video/rajupyora.mp4';
 	import { getSpinnerButtonText, getSpinResult, type SpinnerStage } from './advancedTileState';
+	import { playSpinnerIntroWithSound } from './spinnerVideo';
 
 	const {
 		players,
@@ -174,8 +175,8 @@
 
 		if (currentVideo) {
 			currentVideo.currentTime = 0;
-			void currentVideo.play().catch(() => {
-				if (cancelled) return;
+			void playSpinnerIntroWithSound(currentVideo).then((played) => {
+				if (cancelled || played) return;
 				videoPlaybackFailed = true;
 				completeIntro();
 			});
@@ -208,7 +209,6 @@
 	>
 		<!-- svelte-ignore a11y_media_has_caption -->
 		<video
-			muted
 			playsInline
 			preload="auto"
 			controls={false}

@@ -143,13 +143,16 @@ async function startMultiplayerGameInBrowser(
 	let guestPlayerId: string | null = null;
 
 	await expect
-		.poll(async () => {
-			const state = await getExposedState(hostPage);
-			hostPlayerId = state.players.find((player) => player.name === 'Host')?.id ?? null;
-			guestPlayerId = state.players.find((player) => player.name === 'Guest')?.id ?? null;
+		.poll(
+			async () => {
+				const state = await getExposedState(hostPage);
+				hostPlayerId = state.players.find((player) => player.name === 'Host')?.id ?? null;
+				guestPlayerId = state.players.find((player) => player.name === 'Guest')?.id ?? null;
 
-			return Boolean(hostPlayerId && guestPlayerId);
-		}, { timeout: 15_000 })
+				return Boolean(hostPlayerId && guestPlayerId);
+			},
+			{ timeout: 15_000 }
+		)
 		.toBe(true);
 
 	return {
@@ -706,7 +709,9 @@ test('single-device player menu can quit the game', async ({ page }) => {
 	await expect(page.getByRole('button', { name: 'Aloita peli' })).toBeVisible({ timeout: 15_000 });
 });
 
-test('single-device player menu supports rename, character change, and remove', async ({ page }) => {
+test('single-device player menu supports rename, character change, and remove', async ({
+	page
+}) => {
 	await page.goto('/?e2e=1');
 	await page.getByLabel('Nimi').nth(0).fill('Alpha');
 	await page.getByLabel('Nimi').nth(1).fill('Beta');
@@ -1138,6 +1143,32 @@ test('multiplayer Raju wheel intro resolves on both screens without getting stuc
 
 	await hostContext.close();
 	await guestContext.close();
+});
+
+test('Raju intro video requests playback with sound enabled', async ({ page }) => {
+	test.setTimeout(45_000);
+
+	await startSingleDeviceGame(page, '/?e2e=1&playTiles=1');
+
+	const state = await getExposedState(page);
+	const playerId = state.players[0]?.id;
+	expect(playerId).toBeTruthy();
+
+	await injectGameState(page, {
+		currentTurnPlayerId: playerId,
+		turnInProgress: true,
+		turnOwnerId: playerId,
+		phase: 'tile',
+		activeTilePosition: 14,
+		activeTileTrigger: 'landing',
+		activeTileSessionId: 1,
+		tileState: null
+	});
+
+	const introVideo = page.locator('video').first();
+	await expect(introVideo).toBeVisible({ timeout: 12_000 });
+	await expect.poll(async () => await introVideo.evaluate((node) => node.muted)).toBe(false);
+	await expect.poll(async () => await introVideo.evaluate((node) => node.volume)).toBe(1);
 });
 
 test('multiplayer dice rollback clears stale rolling state after moving onto a new tile', async ({
