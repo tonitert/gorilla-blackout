@@ -10,8 +10,7 @@ export default defineConfig({
 	},
 	webServer: [
 		{
-			command:
-				'pnpm --dir backend install --frozen-lockfile && pnpm --dir backend build && pnpm --dir backend start',
+			command: 'pnpm --dir backend build && pnpm --dir backend start',
 			port: 3001,
 			timeout: 120_000,
 			reuseExistingServer: false

@@ -7,7 +7,13 @@
 	import { Skeleton } from '../ui/skeleton';
 	import Announcements from './Announcements.svelte';
 	import MultiplayerSetup from './MultiplayerSetup.svelte';
-	import { multiplayerStore, setMode } from '$lib/multiplayer/client';
+	import {
+		getMultiplayerResumeAvailability,
+		multiplayerStore,
+		rejoinMultiplayerGame,
+		setMode,
+		type MultiplayerResumeAvailability
+	} from '$lib/multiplayer/client';
 	import { getJoinCodeFromSearch } from '$lib/multiplayer/invite';
 
 	let {
@@ -19,6 +25,15 @@
 	} = $props();
 
 	let appliedJoinCode = $state(false);
+	let multiplayerResumeAvailability = $state<MultiplayerResumeAvailability>({
+		status: 'unavailable',
+		session: null,
+		lobby: null
+	});
+	let loadingMultiplayerResume = $state(false);
+	let rejoiningMultiplayer = $state(false);
+	let multiplayerResumeError = $state('');
+	let checkedMultiplayerResume = $state(false);
 
 	$effect(() => {
 		if (appliedJoinCode || typeof window === 'undefined' || $multiplayerStore.lobby) {
@@ -34,6 +49,44 @@
 		appliedJoinCode = true;
 		setMode('multi');
 	});
+
+	$effect(() => {
+		if (
+			checkedMultiplayerResume ||
+			typeof window === 'undefined' ||
+			pendingState === 'loading' ||
+			!pendingState?.inGame
+		) {
+			return;
+		}
+
+		checkedMultiplayerResume = true;
+		void refreshMultiplayerResumeAvailability();
+	});
+
+	async function refreshMultiplayerResumeAvailability() {
+		loadingMultiplayerResume = true;
+		multiplayerResumeAvailability = await getMultiplayerResumeAvailability();
+		loadingMultiplayerResume = false;
+	}
+
+	async function onRejoinMultiplayer() {
+		if (multiplayerResumeAvailability.status !== 'available') {
+			return;
+		}
+
+		rejoiningMultiplayer = true;
+		multiplayerResumeError = '';
+
+		try {
+			await rejoinMultiplayerGame(multiplayerResumeAvailability.session);
+		} catch {
+			multiplayerResumeError = 'Moninpeliin liittyminen epäonnistui';
+			await refreshMultiplayerResumeAvailability();
+		} finally {
+			rejoiningMultiplayer = false;
+		}
+	}
 </script>
 
 <div class="m-auto flex max-w-200 flex-col space-y-6 p-5">
@@ -65,11 +118,26 @@
 					<li>{player.name}</li>
 				{/each}
 			</ul>
-			<Button
-				onclick={() => {
-					gameStateStore.set(pendingState);
-				}}>Jatka peliä</Button
-			>
+			<div class="flex flex-wrap gap-2">
+				<Button
+					onclick={() => {
+						gameStateStore.set(pendingState);
+					}}>Jatka peliä</Button
+				>
+				<Button
+					data-testid="resume-multiplayer-submit"
+					variant="outline"
+					disabled={loadingMultiplayerResume ||
+						rejoiningMultiplayer ||
+						multiplayerResumeAvailability.status !== 'available'}
+					onclick={onRejoinMultiplayer}
+				>
+					{rejoiningMultiplayer ? 'Liitytään...' : 'Liity moninpeliin'}
+				</Button>
+			</div>
+			{#if multiplayerResumeError}
+				<p class="text-red-500">{multiplayerResumeError}</p>
+			{/if}
 		</div>
 	{/if}
 
