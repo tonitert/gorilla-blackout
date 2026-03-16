@@ -15,6 +15,7 @@
 		type MultiplayerResumeAvailability
 	} from '$lib/multiplayer/client';
 	import { getJoinCodeFromSearch } from '$lib/multiplayer/invite';
+	import { getResumeAvailabilityRefreshDelayMs } from './setupResume';
 
 	let {
 		onStart,
@@ -51,22 +52,34 @@
 	});
 
 	$effect(() => {
-		if (
-			checkedMultiplayerResume ||
-			typeof window === 'undefined' ||
-			pendingState === 'loading' ||
-			!pendingState?.inGame
-		) {
+		if (typeof window === 'undefined' || pendingState === 'loading' || !pendingState?.inGame) {
 			return;
 		}
 
-		checkedMultiplayerResume = true;
-		void refreshMultiplayerResumeAvailability();
+		const refreshDelayMs = getResumeAvailabilityRefreshDelayMs({
+			checkedMultiplayerResume,
+			loadingMultiplayerResume,
+			multiplayerResumeAvailability
+		});
+
+		if (refreshDelayMs === null) {
+			return;
+		}
+
+		const retryTimeout = window.setTimeout(() => {
+			void refreshMultiplayerResumeAvailability();
+		}, refreshDelayMs);
+
+		return () => {
+			window.clearTimeout(retryTimeout);
+		};
 	});
 
 	async function refreshMultiplayerResumeAvailability() {
 		loadingMultiplayerResume = true;
-		multiplayerResumeAvailability = await getMultiplayerResumeAvailability();
+		const availability = await getMultiplayerResumeAvailability();
+		multiplayerResumeAvailability = availability;
+		checkedMultiplayerResume = availability.status === 'available' || availability.session === null;
 		loadingMultiplayerResume = false;
 	}
 

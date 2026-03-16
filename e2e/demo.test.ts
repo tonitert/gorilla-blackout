@@ -106,6 +106,25 @@ function resumeMultiplayerButton(page: Page) {
 	return page.getByTestId('resume-multiplayer-submit');
 }
 
+async function persistMultiplayerSession(page: Page, session: { code: string; playerId: string }) {
+	await page.evaluate(async (sessionPayload) => {
+		const request = indexedDB.open('gorillaBlackoutDB', 1);
+		const db = await new Promise<IDBDatabase>((resolve, reject) => {
+			request.onerror = () => reject(request.error);
+			request.onsuccess = () => resolve(request.result);
+		});
+
+		const transaction = db.transaction('gameState', 'readwrite');
+		const store = transaction.objectStore('gameState');
+		store.put(sessionPayload, 'persistedMultiplayerSession');
+
+		await new Promise<void>((resolve, reject) => {
+			transaction.oncomplete = () => resolve();
+			transaction.onerror = () => reject(transaction.error);
+		});
+	}, session);
+}
+
 async function injectGameState(page: Page, partial: Record<string, unknown>) {
 	await page.evaluate((statePatch) => {
 		(
@@ -217,6 +236,47 @@ test('does not auto-enter previous game after refresh and keeps multiplayer rejo
 	await expect(page.getByText('Aikaisempi peli löytyi. Haluatko jatkaa?')).toBeVisible();
 	await expect(resumeMultiplayerButton(page)).toBeDisabled();
 	await expect(page.getByRole('button', { name: 'Aloita peli' })).toBeVisible();
+});
+
+test('retries multiplayer resume lookup after transient availability failures', async ({
+	page
+}) => {
+	await page.goto('/');
+	await page.getByLabel('Nimi').nth(0).fill('Tester 1');
+	await page.getByLabel('Nimi').nth(1).fill('Tester 2');
+	await page.getByRole('button', { name: 'Aloita peli' }).click();
+	await expect(page.locator('.game')).toBeVisible();
+
+	await persistMultiplayerSession(page, { code: 'ABCDEF', playerId: 'player-1' });
+
+	let lookupCalls = 0;
+	await page.route('**/api/lobbies/ABCDEF', async (route) => {
+		lookupCalls += 1;
+		if (lookupCalls === 1) {
+			await route.fulfill({ status: 503, body: 'temporary outage' });
+			return;
+		}
+
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({
+				lobby: {
+					code: 'ABCDEF',
+					hostId: 'player-1',
+					inGame: true,
+					players: [{ id: 'player-1', name: 'Tester 1', image: '🐵', position: 0 }]
+				}
+			})
+		});
+	});
+
+	await page.reload();
+
+	await expect(page.getByText('Aikaisempi peli löytyi. Haluatko jatkaa?')).toBeVisible();
+	await expect(resumeMultiplayerButton(page)).toBeDisabled();
+	await expect(resumeMultiplayerButton(page)).toBeEnabled({ timeout: 10_000 });
+	expect(lookupCalls).toBeGreaterThanOrEqual(2);
 });
 
 test('single-device deterministic turns still advance players correctly', async ({ page }) => {
