@@ -79,6 +79,78 @@ function hasDuplicateImage(lobby, playerId, image) {
         return false;
     return lobby.players.some((player) => player.id !== playerId && player.image === image);
 }
+function removePlayerFromLobby(lobby, targetPlayerId) {
+    const removedWasHost = lobby.hostId === targetPlayerId;
+    const nextPlayers = lobby.players.filter((player) => player.id !== targetPlayerId);
+    if (nextPlayers.length === lobby.players.length) {
+        return {
+            removed: false,
+            removedWasHost,
+            hostReassigned: false,
+            lobbyClosed: false,
+            gameEnded: false
+        };
+    }
+    lobby.players = nextPlayers;
+    const lobbyClosed = lobby.players.length === 0;
+    if (lobbyClosed) {
+        lobby.inGame = false;
+        lobby.state = null;
+        lobby.pendingRoll = null;
+        return {
+            removed: true,
+            removedWasHost,
+            hostReassigned: false,
+            lobbyClosed: true,
+            gameEnded: false
+        };
+    }
+    let hostReassigned = false;
+    if (removedWasHost) {
+        hostReassigned = true;
+        lobby.hostId = lobby.players[0].id;
+    }
+    const gameEnded = false;
+    if (lobby.state) {
+        const remainingStatePlayers = lobby.state.players.filter((player) => player.id !== targetPlayerId);
+        let nextTurnInProgress = lobby.state.turnInProgress;
+        let nextTurnOwnerId = lobby.state.turnOwnerId;
+        let nextCurrentTurnPlayerId = lobby.state.currentTurnPlayerId;
+        let nextPhase = lobby.state.phase;
+        let nextActiveTilePosition = lobby.state.activeTilePosition;
+        let nextActiveTileTrigger = lobby.state.activeTileTrigger;
+        let nextDiceValue = lobby.state.diceValue;
+        if (nextTurnOwnerId === targetPlayerId) {
+            nextTurnInProgress = false;
+            nextTurnOwnerId = null;
+            nextPhase = 'idle';
+            nextActiveTilePosition = null;
+            nextActiveTileTrigger = null;
+            nextDiceValue = null;
+        }
+        if (nextCurrentTurnPlayerId === targetPlayerId) {
+            nextCurrentTurnPlayerId = remainingStatePlayers[0]?.id ?? null;
+        }
+        lobby.state = {
+            ...lobby.state,
+            players: remainingStatePlayers,
+            turnInProgress: nextTurnInProgress,
+            turnOwnerId: nextTurnOwnerId,
+            currentTurnPlayerId: nextCurrentTurnPlayerId,
+            phase: nextPhase,
+            activeTilePosition: nextActiveTilePosition,
+            activeTileTrigger: nextActiveTileTrigger,
+            diceValue: nextDiceValue
+        };
+    }
+    return {
+        removed: true,
+        removedWasHost,
+        hostReassigned,
+        lobbyClosed: false,
+        gameEnded
+    };
+}
 app.post('/api/lobbies', async (request, reply) => {
     const parsed = playerSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -164,6 +236,53 @@ app.post('/api/lobbies/:code/player', async (request, reply) => {
     broadcastLobby(lobby);
     broadcastGameState(lobby);
     return { lobby: publicLobby(lobby) };
+});
+app.post('/api/lobbies/:code/player/remove', async (request, reply) => {
+    const code = request.params.code.toUpperCase();
+    const lobby = lobbies.get(code);
+    if (!lobby)
+        return reply.code(404).send({ error: 'Lobby not found' });
+    const actorId = request.body?.actorId;
+    const targetPlayerId = request.body?.targetPlayerId;
+    if (!actorId || !targetPlayerId) {
+        return reply.code(400).send({ error: 'actorId and targetPlayerId required' });
+    }
+    const actor = lobby.players.find((player) => player.id === actorId);
+    if (!actor)
+        return reply.code(403).send({ error: 'Actor not in lobby' });
+    const target = lobby.players.find((player) => player.id === targetPlayerId);
+    if (!target)
+        return reply.code(404).send({ error: 'Player not found' });
+    const actorIsHost = lobby.hostId === actorId;
+    const actorRemovingSelf = actorId === targetPlayerId;
+    if (!actorIsHost && !actorRemovingSelf) {
+        return reply.code(403).send({ error: 'Not allowed to remove player' });
+    }
+    const result = removePlayerFromLobby(lobby, targetPlayerId);
+    if (!result.removed) {
+        return reply.code(404).send({ error: 'Player not found' });
+    }
+    if (result.lobbyClosed) {
+        io.to(code).emit('lobby:closed');
+        lobbies.delete(code);
+        return {
+            lobby: null,
+            removedPlayerId: targetPlayerId,
+            lobbyClosed: true,
+            hostReassigned: false,
+            gameEnded: result.gameEnded
+        };
+    }
+    broadcastLobby(lobby);
+    io.to(code).emit('lobby:player-removed', { playerId: targetPlayerId });
+    broadcastGameState(lobby);
+    return {
+        lobby: publicLobby(lobby),
+        removedPlayerId: targetPlayerId,
+        lobbyClosed: false,
+        hostReassigned: result.hostReassigned,
+        gameEnded: result.gameEnded
+    };
 });
 app.get('/api/lobbies/:code', async (request, reply) => {
     const lobby = lobbies.get(request.params.code.toUpperCase());

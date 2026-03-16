@@ -102,6 +102,10 @@ async function joinLobbyWithCode(page: Page, code: string) {
 	await joinLobbyButton.click();
 }
 
+function resumeMultiplayerButton(page: Page) {
+	return page.getByTestId('resume-multiplayer-submit');
+}
+
 async function injectGameState(page: Page, partial: Record<string, unknown>) {
 	await page.evaluate((statePatch) => {
 		(
@@ -197,7 +201,9 @@ test('join flow asks for code only after selecting join mode', async ({ page }) 
 	await expect(page.getByText('Koodin tulee olla 6 merkkiä pitkä')).toBeVisible();
 });
 
-test('does not auto-enter previous game after refresh', async ({ page }) => {
+test('does not auto-enter previous game after refresh and keeps multiplayer rejoin disabled', async ({
+	page
+}) => {
 	await page.goto('/');
 	await page.getByRole('button', { name: 'Aloita peli' }).scrollIntoViewIfNeeded();
 	await page.getByLabel('Nimi').nth(0).fill('Tester 1');
@@ -209,6 +215,7 @@ test('does not auto-enter previous game after refresh', async ({ page }) => {
 
 	await expect(page.locator('.game')).toHaveCount(0);
 	await expect(page.getByText('Aikaisempi peli löytyi. Haluatko jatkaa?')).toBeVisible();
+	await expect(resumeMultiplayerButton(page)).toBeDisabled();
 	await expect(page.getByRole('button', { name: 'Aloita peli' })).toBeVisible();
 });
 
@@ -874,6 +881,163 @@ test.describe.serial('multiplayer and advanced flows', () => {
 		await hostContext.close();
 		await guestContext.close();
 		await lateJoinerContext.close();
+	});
+
+	test('player can rejoin an in-progress multiplayer game after closing the tab', async ({
+		browser
+	}) => {
+		test.setTimeout(90_000);
+
+		const { hostContext, guestContext, hostPage, guestPage, hostPlayerId, guestPlayerId } =
+			await startMultiplayerGameInBrowser(browser, '/?e2e=1');
+
+		expect(hostPlayerId).toBeTruthy();
+		expect(guestPlayerId).toBeTruthy();
+
+		await hostPage.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await expect
+			.poll(
+				async () => {
+					const state = await getExposedState(hostPage);
+					return {
+						positions: state.players.map((player) => player.position),
+						currentTurnPlayerId: state.currentTurnPlayerId
+					};
+				},
+				{ timeout: syncTimeoutMs }
+			)
+			.toEqual({
+				positions: [6, 0],
+				currentTurnPlayerId: guestPlayerId
+			});
+
+		await guestPage.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await expect
+			.poll(
+				async () => {
+					const state = await getExposedState(hostPage);
+					return {
+						positions: state.players.map((player) => player.position),
+						currentTurnPlayerId: state.currentTurnPlayerId
+					};
+				},
+				{ timeout: syncTimeoutMs }
+			)
+			.toEqual({
+				positions: [6, 6],
+				currentTurnPlayerId: hostPlayerId
+			});
+
+		await guestPage.close();
+
+		await hostPage.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await expect
+			.poll(
+				async () => {
+					const state = await getExposedState(hostPage);
+					return {
+						positions: state.players.map((player) => player.position),
+						currentTurnPlayerId: state.currentTurnPlayerId
+					};
+				},
+				{ timeout: syncTimeoutMs }
+			)
+			.toEqual({
+				positions: [12, 6],
+				currentTurnPlayerId: guestPlayerId
+			});
+
+		const rejoinPage = await guestContext.newPage();
+		await rejoinPage.goto('/?e2e=1');
+
+		await expect(rejoinPage.getByText('Aikaisempi peli löytyi. Haluatko jatkaa?')).toBeVisible();
+		await expect(resumeMultiplayerButton(rejoinPage)).toBeEnabled({ timeout: networkTimeoutMs });
+		await resumeMultiplayerButton(rejoinPage).click();
+
+		await expect(rejoinPage.locator('.game')).toBeVisible({ timeout: networkTimeoutMs });
+		await expect
+			.poll(
+				async () => {
+					const rejoinedState = await getExposedState(rejoinPage);
+					const hostState = await getExposedState(hostPage);
+					return {
+						rejoinedPositions: rejoinedState.players.map((player) => player.position),
+						hostPositions: hostState.players.map((player) => player.position),
+						currentTurnPlayerId: rejoinedState.currentTurnPlayerId
+					};
+				},
+				{ timeout: syncTimeoutMs }
+			)
+			.toEqual({
+				rejoinedPositions: [12, 6],
+				hostPositions: [12, 6],
+				currentTurnPlayerId: guestPlayerId
+			});
+
+		await rejoinPage.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await expect
+			.poll(
+				async () => {
+					const rejoinedState = await getExposedState(rejoinPage);
+					const hostState = await getExposedState(hostPage);
+					return {
+						rejoinedPositions: rejoinedState.players.map((player) => player.position),
+						hostPositions: hostState.players.map((player) => player.position),
+						currentTurnPlayerId: rejoinedState.currentTurnPlayerId
+					};
+				},
+				{ timeout: syncTimeoutMs }
+			)
+			.toEqual({
+				rejoinedPositions: [12, 12],
+				hostPositions: [12, 12],
+				currentTurnPlayerId: hostPlayerId
+			});
+
+		await hostContext.close();
+		await guestContext.close();
+	});
+
+	test('rejoin button stays disabled when the saved multiplayer player was removed', async ({
+		browser
+	}) => {
+		test.setTimeout(90_000);
+
+		const { hostContext, guestContext, hostPage, guestPage, code, hostPlayerId, guestPlayerId } =
+			await startMultiplayerGameInBrowser(browser, '/?e2e=1');
+
+		expect(hostPlayerId).toBeTruthy();
+		expect(guestPlayerId).toBeTruthy();
+
+		await guestPage.close();
+
+		const removeResponse = await hostPage.request.post(
+			`http://localhost:3001/api/lobbies/${code}/player/remove`,
+			{
+				data: {
+					actorId: hostPlayerId,
+					targetPlayerId: guestPlayerId
+				}
+			}
+		);
+		expect(removeResponse.ok()).toBe(true);
+
+		const rejoinPage = await guestContext.newPage();
+		await rejoinPage.goto('/?e2e=1');
+
+		await expect(rejoinPage.getByText('Aikaisempi peli löytyi. Haluatko jatkaa?')).toBeVisible();
+		await expect(resumeMultiplayerButton(rejoinPage)).toBeDisabled({ timeout: networkTimeoutMs });
+
+		await hostContext.close();
+		await guestContext.close();
 	});
 
 	test('tileState syncs across multiplayer players when on a tile', async ({ browser }) => {
