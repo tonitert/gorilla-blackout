@@ -1,11 +1,11 @@
 import type { MultiplayerResumeAvailability } from '$lib/multiplayer/client';
 
 export function getResumeAvailabilityRefreshDelayMs(options: {
-	checkedMultiplayerResume: boolean;
+	resumeAvailabilityCheckCount: number;
 	loadingMultiplayerResume: boolean;
 	multiplayerResumeAvailability: MultiplayerResumeAvailability;
 }): number | null {
-	const { checkedMultiplayerResume, loadingMultiplayerResume, multiplayerResumeAvailability } =
+	const { resumeAvailabilityCheckCount, loadingMultiplayerResume, multiplayerResumeAvailability } =
 		options;
 
 	if (loadingMultiplayerResume) {
@@ -16,9 +16,13 @@ export function getResumeAvailabilityRefreshDelayMs(options: {
 		return null;
 	}
 
-	if (checkedMultiplayerResume && !multiplayerResumeAvailability.session) {
+	if (resumeAvailabilityCheckCount === 0) {
+		return 0;
+	}
+
+	if (!multiplayerResumeAvailability.session && resumeAvailabilityCheckCount >= 2) {
 		return null;
 	}
 
-	return checkedMultiplayerResume ? 3_000 : 0;
+	return 3_000;
 }

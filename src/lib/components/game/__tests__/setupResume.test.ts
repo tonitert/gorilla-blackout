@@ -20,7 +20,7 @@ const unavailableWithSession: MultiplayerResumeAvailability = {
 
 test('returns immediate refresh for first lookup', () => {
 	const delay = getResumeAvailabilityRefreshDelayMs({
-		checkedMultiplayerResume: false,
+		resumeAvailabilityCheckCount: 0,
 		loadingMultiplayerResume: false,
 		multiplayerResumeAvailability: unavailableWithoutSession
 	});
@@ -28,9 +28,19 @@ test('returns immediate refresh for first lookup', () => {
 	assert.equal(delay, 0);
 });
 
-test('stops refreshing after checked result confirms no resumable session', () => {
+test('retries once when first lookup has no resumable session', () => {
 	const delay = getResumeAvailabilityRefreshDelayMs({
-		checkedMultiplayerResume: true,
+		resumeAvailabilityCheckCount: 1,
+		loadingMultiplayerResume: false,
+		multiplayerResumeAvailability: unavailableWithoutSession
+	});
+
+	assert.equal(delay, 3000);
+});
+
+test('stops refreshing after second missing-session result', () => {
+	const delay = getResumeAvailabilityRefreshDelayMs({
+		resumeAvailabilityCheckCount: 2,
 		loadingMultiplayerResume: false,
 		multiplayerResumeAvailability: unavailableWithoutSession
 	});
@@ -40,7 +50,7 @@ test('stops refreshing after checked result confirms no resumable session', () =
 
 test('retries after transient unavailable when session exists', () => {
 	const delay = getResumeAvailabilityRefreshDelayMs({
-		checkedMultiplayerResume: true,
+		resumeAvailabilityCheckCount: 1,
 		loadingMultiplayerResume: false,
 		multiplayerResumeAvailability: unavailableWithSession
 	});
@@ -50,7 +60,7 @@ test('retries after transient unavailable when session exists', () => {
 
 test('does not refresh when lookup is already loading', () => {
 	const delay = getResumeAvailabilityRefreshDelayMs({
-		checkedMultiplayerResume: false,
+		resumeAvailabilityCheckCount: 0,
 		loadingMultiplayerResume: true,
 		multiplayerResumeAvailability: unavailableWithSession
 	});

@@ -34,7 +34,7 @@
 	let loadingMultiplayerResume = $state(false);
 	let rejoiningMultiplayer = $state(false);
 	let multiplayerResumeError = $state('');
-	let checkedMultiplayerResume = $state(false);
+	let resumeAvailabilityCheckCount = $state(0);
 
 	$effect(() => {
 		if (appliedJoinCode || typeof window === 'undefined' || $multiplayerStore.lobby) {
@@ -57,7 +57,7 @@
 		}
 
 		const refreshDelayMs = getResumeAvailabilityRefreshDelayMs({
-			checkedMultiplayerResume,
+			resumeAvailabilityCheckCount,
 			loadingMultiplayerResume,
 			multiplayerResumeAvailability
 		});
@@ -79,7 +79,7 @@
 		loadingMultiplayerResume = true;
 		const availability = await getMultiplayerResumeAvailability();
 		multiplayerResumeAvailability = availability;
-		checkedMultiplayerResume = availability.status === 'available' || availability.session === null;
+		resumeAvailabilityCheckCount += 1;
 		loadingMultiplayerResume = false;
 	}
 
