@@ -478,7 +478,7 @@
 				{#key $gameState.activeTileSessionId}
 					<div
 						in:fade={{ duration: 1200 }}
-						class="backdrop flex h-full w-full flex-col items-center justify-center bg-black/60"
+						class="backdrop relative flex h-full w-full flex-col items-center justify-center overflow-hidden bg-black/60"
 					>
 						<p class="p-5 text-center text-2xl text-white">{currentTile.message}</p>
 						{#if currentTile.image}

@@ -17,7 +17,7 @@
 
 <div
 	in:fade={{ duration: 1800 }}
-	class="backdrop flex h-full w-full flex-col items-center justify-center bg-black/60"
+	class="backdrop relative flex h-full w-full flex-col items-center justify-center overflow-hidden bg-black/60"
 >
 	{#if message && message.length > 0}
 		<p class="mt-5 text-2xl text-white">{message}</p>

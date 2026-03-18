@@ -20,6 +20,18 @@ export function getSpinnerButtonText(stage: SpinnerStage): string | null {
 	return 'Odota..';
 }
 
+export function getSpinnerLayerVisibility(stage: SpinnerStage, animationEnabled: boolean) {
+	const showIntro =
+		animationEnabled && (stage === 'waitingForAnimation' || stage === 'animationPlaying');
+	const showWheel = stage === 'waitingForSpin' || stage === 'spinning' || stage === 'result';
+
+	return {
+		showIntro,
+		showWheel,
+		showResult: stage === 'result'
+	};
+}
+
 export function getDiceTileButtonText(stage: DiceTileStage): string | null {
 	if (stage === 'waitingForRoll') {
 		return 'Heitä noppaa';

@@ -1734,7 +1734,7 @@ test.describe.serial('multiplayer and advanced flows', () => {
 		await guestContext.close();
 	});
 
-	test('Raju intro video requests playback with sound enabled', async ({ page }) => {
+	test('Raju intro video stays visible and topmost during the intro', async ({ page }) => {
 		test.setTimeout(45_000);
 
 		await startSingleDeviceGame(page, '/?e2e=1&playTiles=1');
@@ -1754,10 +1754,40 @@ test.describe.serial('multiplayer and advanced flows', () => {
 			tileState: null
 		});
 
-		const introVideo = page.locator('video').first();
+		const introStage = page.getByTestId('spinner-stage');
+		const introContainer = page.getByTestId('spinner-intro');
+		const introVideo = page.getByTestId('spinner-intro-video');
+
+		await expect(introStage).toBeVisible({ timeout: 12_000 });
+		await expect(introContainer).toBeVisible({ timeout: 12_000 });
 		await expect(introVideo).toBeVisible({ timeout: 12_000 });
 		await expect.poll(async () => await introVideo.evaluate((node) => node.muted)).toBe(false);
 		await expect.poll(async () => await introVideo.evaluate((node) => node.volume)).toBe(1);
+		await expect
+			.poll(async () => await introVideo.evaluate((node) => node.currentSrc.includes('rajupyora')))
+			.toBe(true);
+		await expect
+			.poll(async () => {
+				return await introVideo.evaluate((node) => {
+					const rect = node.getBoundingClientRect();
+					const centerX = rect.left + rect.width / 2;
+					const centerY = rect.top + rect.height / 2;
+					const topElement = document.elementFromPoint(centerX, centerY);
+
+					return {
+						width: rect.width,
+						height: rect.height,
+						topElementTag: topElement?.tagName ?? null,
+						videoContainsTopElement: topElement ? node.contains(topElement) : false,
+						topElementContainsVideo: topElement ? topElement.contains(node) : false
+					};
+				});
+			})
+			.toMatchObject({
+				topElementTag: 'VIDEO',
+				videoContainsTopElement: true,
+				topElementContainsVideo: true
+			});
 	});
 
 	test('multiplayer dice rollback clears stale rolling state after moving onto a new tile', async ({
