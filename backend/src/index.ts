@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { Server } from 'socket.io';
+import { Server, type Socket } from 'socket.io';
 import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
 
@@ -370,21 +370,72 @@ app.post<{ Params: { code: string }; Body: { playerId?: string } }>(
 const server = await app.listen({ port, host: '0.0.0.0' });
 const io = new Server(app.server, { cors: { origin: '*' } });
 
-io.on('connection', (socket) => {
+function buildSocketError(code: 'invalid_session' | 'lobby_closed' | 'player_removed') {
+	const error = new Error(code) as Error & { data?: { code: string } };
+	error.data = { code };
+	return error;
+}
+
+function emitCurrentSocketState(socket: Socket, lobby: Lobby) {
+	socket.emit('lobby:update', publicLobby(lobby));
+	if (lobby.state) {
+		socket.emit('game:state', lobby.state);
+	}
+	if (lobby.pendingRoll !== null) {
+		socket.emit('game:roll', lobby.pendingRoll);
+	}
+}
+
+io.use((socket, next) => {
 	const code = (socket.handshake.auth.code as string | undefined)?.toUpperCase();
 	const playerId = socket.handshake.auth.playerId as string | undefined;
 	if (!code || !playerId) {
-		socket.disconnect();
+		next(buildSocketError('invalid_session'));
 		return;
 	}
+
 	const lobby = lobbies.get(code);
-	if (!lobby || !lobby.players.find((p) => p.id === playerId)) {
-		socket.disconnect();
+	if (!lobby) {
+		next(buildSocketError('lobby_closed'));
+		return;
+	}
+
+	if (!lobby.players.find((player) => player.id === playerId)) {
+		next(buildSocketError('player_removed'));
+		return;
+	}
+
+	socket.data.code = code;
+	socket.data.playerId = playerId;
+	next();
+});
+
+io.on('connection', (socket) => {
+	const code = socket.data.code as string;
+	const playerId = socket.data.playerId as string;
+	const lobby = lobbies.get(code);
+	if (!lobby) {
 		return;
 	}
 	socket.join(code);
-	socket.emit('lobby:update', publicLobby(lobby));
-	if (lobby.state) socket.emit('game:state', lobby.state);
+	emitCurrentSocketState(socket, lobby);
+
+	socket.on('game:state:request', () => {
+		const nextLobby = lobbies.get(code);
+		if (!nextLobby) {
+			socket.emit('lobby:closed');
+			socket.disconnect();
+			return;
+		}
+
+		if (!nextLobby.players.find((player) => player.id === playerId)) {
+			socket.emit('lobby:player-removed', { playerId });
+			socket.disconnect();
+			return;
+		}
+
+		emitCurrentSocketState(socket, nextLobby);
+	});
 
 	socket.on('game:state:update', (payload) => {
 		if (!lobby.inGame || !payload) return;
