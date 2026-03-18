@@ -11,7 +11,8 @@
 		startLobbyGame,
 		updateLobbyPlayer
 	} from '$lib/multiplayer/client';
-	import { getJoinCodeFromSearch } from '$lib/multiplayer/invite';
+	import { buildJoinGameUrl, getJoinCodeFromSearch } from '$lib/multiplayer/invite';
+	import QrCode from '$lib/components/ui/QrCode.svelte';
 	import { isValidLobbyCode, normalizeLobbyCode } from '$lib/multiplayer/lobbyCode';
 	import { gameStateStore } from '$lib/gameState.svelte';
 	import { playerImages } from './playerImages';
@@ -44,6 +45,14 @@
 		if (!localPlayer) return;
 		localName = localPlayer.name;
 		localImage = (localPlayer.image in playerImages ? localPlayer.image : 'default') as PlayerImage;
+	});
+
+	const inviteUrl = $derived.by(() => {
+		if (typeof window === 'undefined' || !$multiplayerStore.lobby?.code) {
+			return null;
+		}
+
+		return buildJoinGameUrl($multiplayerStore.lobby.code, window.location.origin);
 	});
 
 	$effect(() => {
@@ -146,7 +155,23 @@
 
 	{#if $multiplayerStore.lobby}
 		<div class="rounded border p-3">
-			<p>Koodi: <strong>{$multiplayerStore.lobby.code}</strong></p>
+			<div class="rounded-xl border border-gray-500 bg-black/20 p-4 text-center">
+				<p class="text-sm tracking-[0.2em] text-gray-300 uppercase">Liity peliin</p>
+				<p class="mt-2 text-3xl font-semibold tracking-[0.3em] text-white">
+					{$multiplayerStore.lobby.code}
+				</p>
+				<p class="mt-3 text-sm text-gray-300">
+					Skannaa QR-koodi, niin liittymiskoodi tayttyy automaattisesti.
+				</p>
+				{#if inviteUrl}
+					<div class="mt-4 flex justify-center">
+						<QrCode
+							alt={`Liity peliin koodilla ${$multiplayerStore.lobby.code}`}
+							value={inviteUrl}
+						/>
+					</div>
+				{/if}
+			</div>
 
 			<div class="mt-3 rounded border border-gray-500 p-3">
 				<label for="multi-name">Nimi</label>

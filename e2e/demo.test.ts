@@ -53,7 +53,9 @@ function getExpectedLandingPosition(startPosition: number, roll: number): number
 
 function getPossibleLandingPositions(startPosition: number): number[] {
 	return Array.from(
-		new Set(Array.from({ length: 6 }, (_, index) => getExpectedLandingPosition(startPosition, index + 1)))
+		new Set(
+			Array.from({ length: 6 }, (_, index) => getExpectedLandingPosition(startPosition, index + 1))
+		)
 	);
 }
 
@@ -93,14 +95,16 @@ async function openCharacterPicker(page: Page) {
 
 async function createLobbyAndReadCode(page: Page): Promise<string> {
 	const createLobbyButton = page.getByRole('button', { name: 'Luo peli', exact: true });
-	const lobbyCodeLabel = page.locator('text=Koodi:');
+	const inviteHint = page.getByText(
+		'Skannaa QR-koodi, niin liittymiskoodi tayttyy automaattisesti.'
+	);
 	await expect(createLobbyButton).toBeVisible({ timeout: networkTimeoutMs });
 
 	for (let attempt = 0; attempt < 8; attempt++) {
 		await createLobbyButton.click();
 
 		try {
-			await expect(lobbyCodeLabel).toBeVisible({ timeout: 8_000 });
+			await expect(inviteHint).toBeVisible({ timeout: 8_000 });
 			break;
 		} catch (error) {
 			if (attempt === 7) {
@@ -110,9 +114,11 @@ async function createLobbyAndReadCode(page: Page): Promise<string> {
 		}
 	}
 
-	const code = (await lobbyCodeLabel.innerText()).split(':').at(-1)?.trim();
-	expect(code).toBeTruthy();
-	return code!;
+	const inviteCodeLabel = page.locator('p.text-3xl').first();
+	await expect(inviteCodeLabel).toBeVisible({ timeout: 8_000 });
+	const code = (await inviteCodeLabel.innerText()).trim();
+	expect(code).toMatch(/^[A-Z0-9]{6}$/);
+	return code;
 }
 
 async function joinLobbyWithCode(page: Page, code: string) {
@@ -275,6 +281,18 @@ test('can switch between single and multiplayer setup modes', async ({ page }) =
 	await expect(page.getByRole('heading', { name: 'Monen laitteen peli (Beta)' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Hostaa peli' })).toBeVisible();
 	await expect(page.getByRole('button', { name: 'Liity peliin' })).toBeVisible();
+});
+
+test('host setup shows a join QR code after creating a lobby', async ({ page }) => {
+	await page.goto('/');
+	await page.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
+	await page.getByRole('button', { name: 'Hostaa peli' }).click();
+	const code = await createLobbyAndReadCode(page);
+
+	await expect(
+		page.getByText('Skannaa QR-koodi, niin liittymiskoodi tayttyy automaattisesti.')
+	).toBeVisible();
+	await expect(page.getByAltText(`Liity peliin koodilla ${code}`)).toBeVisible();
 });
 
 test('join flow asks for code only after selecting join mode', async ({ page }) => {
@@ -668,8 +686,7 @@ test.describe.serial('multiplayer and advanced flows', () => {
 			const possibleLandingPositions = getPossibleLandingPositions(
 				before.players[actorIndex].position
 			);
-			const actorPage =
-				before.currentTurnPlayerId === guestPlayerId ? guestPage : hostPage;
+			const actorPage = before.currentTurnPlayerId === guestPlayerId ? guestPage : hostPage;
 			await actorPage.evaluate(() => {
 				(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
 			});
@@ -1339,11 +1356,13 @@ test.describe.serial('multiplayer and advanced flows', () => {
 	}) => {
 		test.setTimeout(120_000);
 
-		const { contexts, pages, hostPage, code, playerIdsByName } = await startMultiplayerGameWithPlayers(
-			browser,
-			'/?e2e=1&randomDice=1',
-			['Host', 'P2', 'P3', 'P4']
-		);
+		const { contexts, pages, hostPage, code, playerIdsByName } =
+			await startMultiplayerGameWithPlayers(browser, '/?e2e=1&randomDice=1', [
+				'Host',
+				'P2',
+				'P3',
+				'P4'
+			]);
 		const [hostContext, p2Context, p3Context, p4Context] = contexts;
 		const [, p2Page, p3Page, p4Page] = pages;
 
