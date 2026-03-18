@@ -214,6 +214,53 @@ async function startMultiplayerGameInBrowser(
 	};
 }
 
+async function startMultiplayerGameWithPlayers(
+	browser: import('@playwright/test').Browser,
+	url: string,
+	names: string[]
+) {
+	const contexts = await Promise.all(names.map(() => browser.newContext()));
+	const pages = await Promise.all(contexts.map((context) => context.newPage()));
+	await Promise.all(pages.map((page) => page.goto(url)));
+
+	const [hostPage, ...guestPages] = pages;
+	await hostPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
+	await hostPage.getByRole('button', { name: 'Hostaa peli' }).click();
+	const code = await createLobbyAndReadCode(hostPage);
+	await savePlayerName(hostPage, names[0]);
+
+	for (const [index, guestPage] of guestPages.entries()) {
+		await guestPage.getByRole('button', { name: 'Monen laitteen peli (Beta)' }).click();
+		await guestPage.getByRole('button', { name: 'Liity peliin' }).click();
+		await joinLobbyWithCode(guestPage, code);
+		await savePlayerName(guestPage, names[index + 1]);
+	}
+
+	await hostPage.getByRole('button', { name: 'Aloita monen laitteen peli' }).click();
+
+	await Promise.all(
+		pages.map((page) =>
+			page.evaluate(() => {
+				(window as Window & { __GB_ENTER_GAME__?: () => void }).__GB_ENTER_GAME__?.();
+			})
+		)
+	);
+	await Promise.all(pages.map((page) => expect(page.locator('.game')).toBeVisible()));
+
+	const initialState = await getExposedState(hostPage);
+	const playerIdsByName = Object.fromEntries(
+		names.map((name, index) => [name, initialState.players[index]?.id ?? null])
+	);
+
+	return {
+		contexts,
+		pages,
+		hostPage,
+		code,
+		playerIdsByName
+	};
+}
+
 function characterToggle(page: Page, character: string) {
 	return page
 		.locator('button')
@@ -1121,6 +1168,247 @@ test.describe.serial('multiplayer and advanced flows', () => {
 
 		await hostContext.close();
 		await guestContext.close();
+	});
+
+	test('shows reconnect overlay and disables multiplayer controls while offline', async ({
+		browser
+	}) => {
+		const { hostContext, guestContext, hostPage } = await startMultiplayerGameInBrowser(
+			browser,
+			'/?e2e=1'
+		);
+
+		const nextTurnButton = hostPage.getByRole('button', { name: 'Seuraava vuoro' });
+		const playerEditorButton = hostPage
+			.locator('button')
+			.filter({ hasText: 'Muokkaa pelaajia' })
+			.last();
+
+		await hostContext.setOffline(true);
+
+		await expect(hostPage.getByTestId('multiplayer-reconnect-overlay')).toContainText(
+			'Yhteys katkennut, yritetään uudelleenyhdistää..',
+			{ timeout: networkTimeoutMs }
+		);
+		await expect(nextTurnButton).toBeDisabled();
+		await expect(playerEditorButton).toBeDisabled();
+
+		await hostContext.setOffline(false);
+
+		await expect(hostPage.getByTestId('multiplayer-reconnect-overlay')).toHaveCount(0, {
+			timeout: networkTimeoutMs
+		});
+		await expect(nextTurnButton).toBeEnabled({ timeout: networkTimeoutMs });
+		await expect(playerEditorButton).toBeEnabled({ timeout: networkTimeoutMs });
+
+		await hostContext.close();
+		await guestContext.close();
+	});
+
+	test('active player reconnects cleanly after disconnecting during a server roll', async ({
+		browser
+	}) => {
+		test.setTimeout(90_000);
+
+		const { hostContext, guestContext, hostPage, guestPage, hostPlayerId, guestPlayerId } =
+			await startMultiplayerGameInBrowser(browser, '/?e2e=1&randomDice=1');
+
+		await hostPage.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await hostContext.setOffline(true);
+
+		await expect
+			.poll(async () => await getExposedRoll(guestPage), { timeout: syncTimeoutMs })
+			.not.toBeNull();
+
+		await hostPage.waitForTimeout(3_000);
+		await hostContext.setOffline(false);
+
+		await expect
+			.poll(
+				async () => {
+					const hostState = await getExposedState(hostPage);
+					const guestState = await getExposedState(guestPage);
+
+					return (
+						JSON.stringify(hostState.players.map((player) => player.position)) ===
+							JSON.stringify(guestState.players.map((player) => player.position)) &&
+						hostState.players[0].position > 0 &&
+						hostState.currentTurnPlayerId === guestPlayerId &&
+						guestState.currentTurnPlayerId === guestPlayerId
+					);
+				},
+				{ timeout: networkTimeoutMs }
+			)
+			.toBe(true);
+
+		const syncedHostState = await getExposedState(hostPage);
+		expect(syncedHostState.players[0].position).toBeGreaterThan(0);
+		expect(syncedHostState.currentTurnPlayerId).toBe(guestPlayerId);
+		expect(hostPlayerId).toBeTruthy();
+
+		await hostContext.close();
+		await guestContext.close();
+	});
+
+	test('offline player catches up after other players advance three turns in a four-player game', async ({
+		browser
+	}) => {
+		test.setTimeout(120_000);
+
+		const { contexts, pages, hostPage, playerIdsByName } = await startMultiplayerGameWithPlayers(
+			browser,
+			'/?e2e=1&randomDice=1',
+			['Host', 'P2', 'P3', 'P4']
+		);
+		const [hostContext, p2Context, p3Context, p4Context] = contexts;
+		const [, p2Page, p3Page, p4Page] = pages;
+
+		await p4Context.setOffline(true);
+
+		await hostPage.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await expect
+			.poll(async () => (await getExposedState(hostPage)).currentTurnPlayerId, {
+				timeout: syncTimeoutMs
+			})
+			.toBe(playerIdsByName.P2);
+
+		await p2Page.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await expect
+			.poll(async () => (await getExposedState(hostPage)).currentTurnPlayerId, {
+				timeout: syncTimeoutMs
+			})
+			.toBe(playerIdsByName.P3);
+
+		await p3Page.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await expect
+			.poll(async () => (await getExposedState(hostPage)).currentTurnPlayerId, {
+				timeout: syncTimeoutMs
+			})
+			.toBe(playerIdsByName.P4);
+
+		await p4Context.setOffline(false);
+
+		await expect
+			.poll(
+				async () => {
+					const hostState = await getExposedState(hostPage);
+					const p4State = await getExposedState(p4Page);
+
+					return (
+						JSON.stringify(hostState.players.map((player) => player.position)) ===
+							JSON.stringify(p4State.players.map((player) => player.position)) &&
+						hostState.currentTurnPlayerId === playerIdsByName.P4 &&
+						p4State.currentTurnPlayerId === playerIdsByName.P4
+					);
+				},
+				{ timeout: networkTimeoutMs }
+			)
+			.toBe(true);
+
+		const hostStateBeforeP4Turn = await getExposedState(hostPage);
+		const p4StateBeforeTurn = await getExposedState(p4Page);
+		expect(p4StateBeforeTurn.players.map((player) => player.position)).toEqual(
+			hostStateBeforeP4Turn.players.map((player) => player.position)
+		);
+
+		await p4Page.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await expect
+			.poll(async () => (await getExposedState(hostPage)).currentTurnPlayerId, {
+				timeout: syncTimeoutMs
+			})
+			.toBe(playerIdsByName.Host);
+
+		await hostContext.close();
+		await p2Context.close();
+		await p3Context.close();
+		await p4Context.close();
+	});
+
+	test('rejoin restores a four-player session after other players advance three turns', async ({
+		browser
+	}) => {
+		test.setTimeout(120_000);
+
+		const { contexts, pages, hostPage, code, playerIdsByName } = await startMultiplayerGameWithPlayers(
+			browser,
+			'/?e2e=1&randomDice=1',
+			['Host', 'P2', 'P3', 'P4']
+		);
+		const [hostContext, p2Context, p3Context, p4Context] = contexts;
+		const [, p2Page, p3Page, p4Page] = pages;
+
+		await p4Page.close();
+
+		await hostPage.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await expect
+			.poll(async () => (await getExposedState(hostPage)).currentTurnPlayerId, {
+				timeout: syncTimeoutMs
+			})
+			.toBe(playerIdsByName.P2);
+
+		await p2Page.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await expect
+			.poll(async () => (await getExposedState(hostPage)).currentTurnPlayerId, {
+				timeout: syncTimeoutMs
+			})
+			.toBe(playerIdsByName.P3);
+
+		await p3Page.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await expect
+			.poll(async () => (await getExposedState(hostPage)).currentTurnPlayerId, {
+				timeout: syncTimeoutMs
+			})
+			.toBe(playerIdsByName.P4);
+
+		const hostStateBeforeRejoin = await getExposedState(hostPage);
+		const rejoinPage = await p4Context.newPage();
+		await rejoinPage.goto(`/?e2e=1&randomDice=1&join=${code}`);
+
+		await expect(rejoinPage.getByText('Aikaisempi peli löytyi. Haluatko jatkaa?')).toBeVisible();
+		await expect(resumeMultiplayerButton(rejoinPage)).toBeEnabled({ timeout: networkTimeoutMs });
+		await resumeMultiplayerButton(rejoinPage).click();
+		await expect(rejoinPage.locator('.game')).toBeVisible({ timeout: networkTimeoutMs });
+
+		await expect
+			.poll(async () => (await getExposedState(rejoinPage)).currentTurnPlayerId, {
+				timeout: networkTimeoutMs
+			})
+			.toBe(playerIdsByName.P4);
+
+		const rejoinedState = await getExposedState(rejoinPage);
+		expect(rejoinedState.players.map((player) => player.position)).toEqual(
+			hostStateBeforeRejoin.players.map((player) => player.position)
+		);
+
+		await rejoinPage.evaluate(() => {
+			(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
+		});
+		await expect
+			.poll(async () => (await getExposedState(hostPage)).currentTurnPlayerId, {
+				timeout: syncTimeoutMs
+			})
+			.toBe(playerIdsByName.Host);
+
+		await hostContext.close();
+		await p2Context.close();
+		await p3Context.close();
+		await p4Context.close();
 	});
 
 	test('tileState syncs across multiplayer players when on a tile', async ({ browser }) => {

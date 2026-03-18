@@ -27,6 +27,7 @@
 		requestServerDiceRoll,
 		serverDiceRollStore
 	} from '$lib/multiplayer/client';
+	import { canLocalMultiplayerPlayerAct } from '$lib/multiplayer/connection';
 	import { getActiveTileView } from './tiles/activeTile';
 	import type { ActiveTileTrigger } from './tiles/tileVariant';
 
@@ -370,12 +371,17 @@
 	}
 
 	const canLocalPlayerAct = $derived.by(() => {
-		if ($multiplayerStore.mode !== 'multi') return true;
-		return (
-			$multiplayerStore.playerId !== null &&
-			$multiplayerStore.playerId === $gameState.currentTurnPlayerId
-		);
+		return canLocalMultiplayerPlayerAct({
+			mode: $multiplayerStore.mode,
+			connectionState: $multiplayerStore.connectionState,
+			localPlayerId: $multiplayerStore.playerId,
+			currentTurnPlayerId: $gameState.currentTurnPlayerId
+		});
 	});
+
+	const shouldShowReconnectOverlay = $derived(
+		$multiplayerStore.mode === 'multi' && $multiplayerStore.connectionState !== 'connected'
+	);
 
 	$effect(() => {
 		if ($multiplayerStore.mode !== 'multi') return;
@@ -504,7 +510,15 @@
 		</p>
 	{/if}
 
-	<div class="m-auto flex grow-0 items-center justify-center gap-12">
+	<div class="relative m-auto flex grow-0 items-center justify-center gap-12">
+		{#if shouldShowReconnectOverlay}
+			<div
+				class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-black/75 px-4 text-center text-sm font-semibold text-white"
+				data-testid="multiplayer-reconnect-overlay"
+			>
+				Yhteys katkennut, yritetään uudelleenyhdistää..
+			</div>
+		{/if}
 		{#snippet nextTurnButton()}
 			<Button
 				size="lg"
@@ -553,6 +567,7 @@
 			players={$gameState.players}
 			mode={$multiplayerStore.mode === 'multi' ? 'multi' : 'single'}
 			inviteCode={$multiplayerStore.lobby?.code ?? null}
+			disabled={shouldShowReconnectOverlay}
 			onSubmit={(players) => {
 				gameState.update((state) => ({ ...state, players }));
 			}}

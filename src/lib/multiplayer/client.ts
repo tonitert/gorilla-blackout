@@ -8,6 +8,10 @@ import {
 	savePersistedMultiplayerSession,
 	type PersistedMultiplayerSession
 } from './persistedSession';
+import {
+	isPermanentMultiplayerErrorCode,
+	type MultiplayerConnectionState
+} from './connection';
 
 export type GameMode = 'single' | 'multi';
 
@@ -20,6 +24,7 @@ type Session = {
 	playerId: string | null;
 	isHost: boolean;
 	lobby: Lobby | null;
+	connectionState: MultiplayerConnectionState;
 };
 
 export type MultiplayerResumeAvailability =
@@ -44,7 +49,8 @@ const defaultSession: Session = {
 	code: null,
 	playerId: null,
 	isHost: false,
-	lobby: null
+	lobby: null,
+	connectionState: 'disconnected'
 };
 
 const initialResumeAvailability: MultiplayerResumeAvailability = {
@@ -59,6 +65,8 @@ export const serverDiceRollStore = writable<number | null>(null);
 let socket: Socket | null = null;
 let suppressSync = false;
 let previousBroadcastPhase: GameState['phase'] | null = null;
+let lifecycleResyncInitialized = false;
+let resyncTimeoutId: number | null = null;
 
 class RequestError extends Error {
 	status: number;
@@ -116,13 +124,31 @@ function resetSession(mode: GameMode = 'single') {
 	multiplayerStore.set({ ...defaultSession, mode });
 }
 
-function buildSession(session: PersistedMultiplayerSession, lobby: Lobby): Session {
+function setConnectionState(connectionState: MultiplayerConnectionState) {
+	multiplayerStore.update((state) => {
+		if (state.mode !== 'multi') {
+			return state;
+		}
+
+		return {
+			...state,
+			connectionState
+		};
+	});
+}
+
+function buildSession(
+	session: PersistedMultiplayerSession,
+	lobby: Lobby,
+	connectionState: MultiplayerConnectionState = 'connecting'
+): Session {
 	return {
 		mode: 'multi',
 		code: session.code,
 		playerId: session.playerId,
 		isHost: lobby.hostId === session.playerId,
-		lobby
+		lobby,
+		connectionState
 	};
 }
 
@@ -135,6 +161,7 @@ function connect(options?: {
 	waitForGameState?: boolean;
 	timeoutMs?: number;
 }): Promise<void> | undefined {
+	initializeLifecycleResync();
 	const session = get(multiplayerStore);
 	if (!session.code || !session.playerId) {
 		return options?.waitForGameState
@@ -143,6 +170,7 @@ function connect(options?: {
 	}
 
 	socket?.disconnect();
+	setConnectionState('connecting');
 	socket = io(backendUrl, { auth: { code: session.code, playerId: session.playerId } });
 	const activeSocket = socket;
 
@@ -197,12 +225,39 @@ function connect(options?: {
 		});
 	}
 
+	activeSocket.on('connect', () => {
+		if (socket !== activeSocket) return;
+		setConnectionState('connecting');
+		requestAuthoritativeState(activeSocket);
+	});
+	activeSocket.on('connect_error', (error: Error & { data?: { code?: string } }) => {
+		if (socket !== activeSocket) return;
+
+		const errorCode = error.data?.code ?? error.message;
+		if (isPermanentMultiplayerErrorCode(errorCode)) {
+			void clearPersistedSessionSafely();
+			resetSession('single');
+			clearGameState();
+			return;
+		}
+
+		serverDiceRollStore.set(null);
+		setConnectionState('disconnected');
+	});
+	activeSocket.on('disconnect', (reason: string) => {
+		if (socket !== activeSocket || reason === 'io client disconnect') return;
+		serverDiceRollStore.set(null);
+		setConnectionState('disconnected');
+	});
 	activeSocket.on('lobby:update', (lobby: Lobby) => {
 		multiplayerStore.update((state) => ({
 			...state,
 			lobby,
 			isHost: lobby.hostId === state.playerId
 		}));
+		if (!lobby.inGame) {
+			setConnectionState('connected');
+		}
 		if (!lobby.inGame) {
 			clearGameState();
 		}
@@ -228,6 +283,7 @@ function connect(options?: {
 		suppressSync = true;
 		gameStateStore.set(state);
 		suppressSync = false;
+		setConnectionState('connected');
 		if (enteringRollingPhase) {
 			serverDiceRollStore.set(null);
 		}
@@ -239,6 +295,71 @@ function connect(options?: {
 	});
 
 	return initialStatePromise;
+}
+
+function requestAuthoritativeState(activeSocket: Socket | null = socket) {
+	if (!activeSocket?.connected) {
+		return;
+	}
+
+	activeSocket.emit('game:state:request');
+}
+
+function initializeLifecycleResync() {
+	if (typeof window === 'undefined' || lifecycleResyncInitialized) {
+		return;
+	}
+
+	const scheduleResync = () => {
+		if (resyncTimeoutId !== null) {
+			window.clearTimeout(resyncTimeoutId);
+		}
+
+		resyncTimeoutId = window.setTimeout(() => {
+			resyncTimeoutId = null;
+			void resumeMultiplayerSync();
+		}, 150);
+	};
+
+	const markDisconnected = () => {
+		const session = get(multiplayerStore);
+		if (session.mode !== 'multi') {
+			return;
+		}
+
+		serverDiceRollStore.set(null);
+		setConnectionState('disconnected');
+	};
+
+	window.addEventListener('online', scheduleResync);
+	window.addEventListener('offline', markDisconnected);
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'visible') {
+			scheduleResync();
+		}
+	});
+
+	lifecycleResyncInitialized = true;
+}
+
+async function resumeMultiplayerSync() {
+	const session = get(multiplayerStore);
+	if (session.mode !== 'multi' || !session.code || !session.playerId) {
+		return;
+	}
+
+	if (!socket) {
+		connect();
+		return;
+	}
+
+	setConnectionState('connecting');
+	if (socket.connected) {
+		requestAuthoritativeState(socket);
+		return;
+	}
+
+	socket.connect();
 }
 
 export async function getMultiplayerResumeAvailability(): Promise<MultiplayerResumeAvailability> {
@@ -301,7 +422,7 @@ export async function createLobby(name: string, image: string) {
 		image
 	});
 	const session = { code: payload.code, playerId: payload.playerId };
-	multiplayerStore.set(buildSession(session, payload.lobby));
+	multiplayerStore.set(buildSession(session, payload.lobby, 'connecting'));
 	await persistSessionSafely(session);
 	connect();
 }
@@ -312,7 +433,7 @@ export async function joinLobby(code: string, name: string, image: string) {
 		{ name, image }
 	);
 	const session = { code: payload.code, playerId: payload.playerId };
-	multiplayerStore.set(buildSession(session, payload.lobby));
+	multiplayerStore.set(buildSession(session, payload.lobby, 'connecting'));
 	await persistSessionSafely(session);
 	connect();
 }
@@ -377,7 +498,14 @@ export async function quitCurrentGame() {
 
 export function requestServerDiceRoll() {
 	const session = get(multiplayerStore);
-	if (session.mode !== 'multi' || !session.code || !session.playerId) return;
+	if (
+		session.mode !== 'multi' ||
+		!session.code ||
+		!session.playerId ||
+		session.connectionState !== 'connected' ||
+		!socket?.connected
+	)
+		return;
 	socket?.emit('game:roll:request', { actorId: session.playerId });
 }
 
@@ -397,7 +525,15 @@ export async function startLobbyGame() {
 export function enableMultiplayerSync() {
 	return gameStateStore.subscribe((state) => {
 		const session = get(multiplayerStore);
-		if (session.mode !== 'multi' || !session.code || suppressSync || !state.inGame) return;
+		if (
+			session.mode !== 'multi' ||
+			!session.code ||
+			session.connectionState !== 'connected' ||
+			suppressSync ||
+			!state.inGame ||
+			!socket?.connected
+		)
+			return;
 		socket?.emit('game:state:update', {
 			actorId: session.playerId,
 			state: structuredClone(state)
@@ -410,5 +546,9 @@ export function setMode(mode: GameMode) {
 		resetSession('single');
 		return;
 	}
-	multiplayerStore.update((state) => ({ ...state, mode }));
+	multiplayerStore.update((state) => ({
+		...state,
+		mode,
+		connectionState: 'disconnected'
+	}));
 }

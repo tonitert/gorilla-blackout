@@ -25,9 +25,10 @@
 		onSubmit: (players: Player[]) => void;
 		mode?: 'single' | 'multi';
 		inviteCode?: string | null;
+		disabled?: boolean;
 	}
 
-	let { players, onSubmit, mode = 'single', inviteCode = null }: Props = $props();
+	let { players, onSubmit, mode = 'single', inviteCode = null, disabled = false }: Props = $props();
 	let open = $state(false);
 	type PlayerImage = keyof typeof playerImages | 'default';
 	let localName = $state('');
@@ -65,6 +66,12 @@
 		}
 
 		return buildJoinGameUrl(inviteCode, window.location.origin);
+	});
+
+	$effect(() => {
+		if (disabled && open) {
+			open = false;
+		}
 	});
 
 	$effect(() => {
@@ -131,7 +138,7 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Trigger>
-		<Button size="lg" class="m-auto grow-0" variant="outline">Muokkaa pelaajia</Button>
+		<Button size="lg" class="m-auto grow-0" variant="outline" {disabled}>Muokkaa pelaajia</Button>
 	</Dialog.Trigger>
 	<Dialog.Content class="max-h-[calc(100vh-24px)] overflow-y-auto sm:max-w-[425px]">
 		{#if mode === 'multi'}
