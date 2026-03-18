@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
 	areDiceRollsEqual,
 	getDiceTileButtonText,
+	getSpinnerLayerVisibility,
 	normalizeDiceRolls,
 	getSpinResult,
 	getSpinnerButtonText,
@@ -15,6 +16,34 @@ describe('advancedTileState', () => {
 		assert.equal(getSpinnerButtonText('waitingForSpin'), 'Pyöräytä pyörää');
 		assert.equal(getSpinnerButtonText('result'), null);
 		assert.equal(getSpinnerButtonText('animationPlaying'), 'Odota..');
+	});
+
+	it('shows the correct spinner layers for intro, wheel, and result stages', () => {
+		assert.deepEqual(getSpinnerLayerVisibility('waitingForAnimation', true), {
+			showIntro: true,
+			showWheel: false,
+			showResult: false
+		});
+		assert.deepEqual(getSpinnerLayerVisibility('animationPlaying', true), {
+			showIntro: true,
+			showWheel: false,
+			showResult: false
+		});
+		assert.deepEqual(getSpinnerLayerVisibility('waitingForSpin', true), {
+			showIntro: false,
+			showWheel: true,
+			showResult: false
+		});
+		assert.deepEqual(getSpinnerLayerVisibility('result', true), {
+			showIntro: false,
+			showWheel: true,
+			showResult: true
+		});
+		assert.deepEqual(getSpinnerLayerVisibility('waitingForAnimation', false), {
+			showIntro: false,
+			showWheel: false,
+			showResult: false
+		});
 	});
 
 	it('maps dice tile stages to the correct button labels', () => {

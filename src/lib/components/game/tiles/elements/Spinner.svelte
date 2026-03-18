@@ -30,7 +30,12 @@
 	import Overlay from '$lib/components/ui/Overlay.svelte';
 	import RajuOsoitin from '$lib/assets/RajuOsoitin.png';
 	import animationUrl from '$lib/assets/video/rajupyora.mp4';
-	import { getSpinnerButtonText, getSpinResult, type SpinnerStage } from './advancedTileState';
+	import {
+		getSpinnerButtonText,
+		getSpinnerLayerVisibility,
+		getSpinResult,
+		type SpinnerStage
+	} from './advancedTileState';
 	import { playSpinnerIntroWithSound } from './spinnerVideo';
 
 	const {
@@ -61,6 +66,7 @@
 	let selectedSpinFloat = $state<number | null>(null);
 	let addedElementInstance = $state<{ onActionButtonClick?: () => void } | undefined>(undefined);
 	let videoPlaybackFailed = $state(false);
+	const visibleLayers = $derived(getSpinnerLayerVisibility(stage, animation));
 
 	const wheelOptions = options.length;
 
@@ -174,7 +180,6 @@
 		videoPlaybackFailed = false;
 
 		if (currentVideo) {
-			currentVideo.currentTime = 0;
 			void playSpinnerIntroWithSound(currentVideo).then((played) => {
 				if (cancelled || played) return;
 				videoPlaybackFailed = true;
@@ -202,66 +207,72 @@
 	<link rel="preload" as="video" href={animationUrl} type="video/mp4" />
 {/if}
 
-{#if (stage === 'waitingForAnimation' || stage === 'animationPlaying') && animation}
-	<div
-		class="absolute h-full w-full bg-neutral-950 bg-contain bg-center bg-no-repeat"
-		style="background-image: url({spinnerImage});"
-	>
-		<!-- svelte-ignore a11y_media_has_caption -->
-		<video
-			playsInline
-			preload="auto"
-			controls={false}
-			poster={spinnerImage}
-			bind:this={video}
-			class="h-full w-full object-contain"
-			onended={() => {
-				completeIntro();
-			}}
-			onerror={() => {
-				videoPlaybackFailed = true;
-				completeIntro();
-			}}
-		>
-			<source src={animationUrl} type="video/mp4" />
-		</video>
-		{#if videoPlaybackFailed}
-			<div class="absolute inset-0 flex items-center justify-center bg-black/45">
-				<p class="rounded bg-black/70 px-4 py-2 text-center text-white">Pyörää valmistellaan...</p>
-			</div>
-		{/if}
-	</div>
-{/if}
-
-{#if stage === 'waitingForSpin' || stage === 'spinning' || stage === 'result'}
-	<div class="absolute m-auto h-full w-full overflow-hidden">
+<div class="absolute inset-0 isolate bg-black" data-testid="spinner-stage">
+	{#if visibleLayers.showIntro}
 		<div
-			style="transition-duration: {animationDuration}ms; background-image: url({spinnerImage}); transform: rotate(-{stage ===
-				'spinning' || stage === 'result'
-				? spinDegrees
-				: 0}deg);"
-			class="aspect-square h-full w-full bg-contain transition-transform ease-[cubic-bezier(.25,-.01,.07,1)]"
-			ontransitionend={() => {
-				if (!canAct || stage !== 'spinning') return;
-				setStage('result');
-			}}
-		></div>
-		<img
-			class="absolute left-1/2 z-1 w-[10%] translate-x-[-50%] object-contain"
-			style="top: {topOffset}%"
-			src={RajuOsoitin}
-			alt="Raju Osoitin"
-		/>
-	</div>
-{/if}
+			class="absolute inset-0 z-20 bg-black bg-contain bg-center bg-no-repeat"
+			style="background-image: url({spinnerImage});"
+			data-testid="spinner-intro"
+		>
+			<!-- svelte-ignore a11y_media_has_caption -->
+			<video
+				playsInline
+				preload="auto"
+				controls={false}
+				poster={spinnerImage}
+				bind:this={video}
+				class="absolute inset-0 h-full w-full bg-black object-contain"
+				data-testid="spinner-intro-video"
+				onended={() => {
+					completeIntro();
+				}}
+				onerror={() => {
+					videoPlaybackFailed = true;
+					completeIntro();
+				}}
+			>
+				<source src={animationUrl} type="video/mp4" />
+			</video>
+			{#if videoPlaybackFailed}
+				<div class="absolute inset-0 flex items-center justify-center bg-black/45">
+					<p class="rounded bg-black/70 px-4 py-2 text-center text-white">
+						Pyörää valmistellaan...
+					</p>
+				</div>
+			{/if}
+		</div>
+	{/if}
 
-{#if stage === 'result'}
-	<div class="absolute z-10 h-full w-full">
-		<Overlay
-			message={options[chosen].name}
-			AddedElement={options[chosen].element}
-			customElementProps={{ ...options[chosen].props, tileState, setTileState, canAct }}
-			bind:addedElementInstance
-		/>
-	</div>
-{/if}
+	{#if visibleLayers.showWheel}
+		<div class="absolute inset-0 z-10 overflow-hidden" data-testid="spinner-wheel">
+			<div
+				style="transition-duration: {animationDuration}ms; background-image: url({spinnerImage}); transform: rotate(-{stage ===
+					'spinning' || stage === 'result'
+					? spinDegrees
+					: 0}deg);"
+				class="aspect-square h-full w-full bg-contain transition-transform ease-[cubic-bezier(.25,-.01,.07,1)]"
+				ontransitionend={() => {
+					if (!canAct || stage !== 'spinning') return;
+					setStage('result');
+				}}
+			></div>
+			<img
+				class="absolute left-1/2 z-1 w-[10%] translate-x-[-50%] object-contain"
+				style="top: {topOffset}%"
+				src={RajuOsoitin}
+				alt="Raju Osoitin"
+			/>
+		</div>
+	{/if}
+
+	{#if visibleLayers.showResult}
+		<div class="absolute inset-0 z-30">
+			<Overlay
+				message={options[chosen].name}
+				AddedElement={options[chosen].element}
+				customElementProps={{ ...options[chosen].props, tileState, setTileState, canAct }}
+				bind:addedElementInstance
+			/>
+		</div>
+	{/if}
+</div>
