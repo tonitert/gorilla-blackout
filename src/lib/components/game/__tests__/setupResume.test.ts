@@ -35,12 +35,22 @@ test('retries once when first lookup has no resumable session', () => {
 		multiplayerResumeAvailability: unavailableWithoutSession
 	});
 
-	assert.equal(delay, 3000);
+	assert.equal(delay, 1000);
 });
 
-test('stops refreshing after second missing-session result', () => {
+test('keeps retrying a missing session for a few refresh cycles', () => {
 	const delay = getResumeAvailabilityRefreshDelayMs({
 		resumeAvailabilityCheckCount: 2,
+		loadingMultiplayerResume: false,
+		multiplayerResumeAvailability: unavailableWithoutSession
+	});
+
+	assert.equal(delay, 1000);
+});
+
+test('stops refreshing after repeated missing-session results', () => {
+	const delay = getResumeAvailabilityRefreshDelayMs({
+		resumeAvailabilityCheckCount: 5,
 		loadingMultiplayerResume: false,
 		multiplayerResumeAvailability: unavailableWithoutSession
 	});
@@ -55,7 +65,7 @@ test('retries after transient unavailable when session exists', () => {
 		multiplayerResumeAvailability: unavailableWithSession
 	});
 
-	assert.equal(delay, 3000);
+	assert.equal(delay, 1000);
 });
 
 test('does not refresh when lookup is already loading', () => {

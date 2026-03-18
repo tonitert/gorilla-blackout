@@ -1,8 +1,10 @@
 import { defineConfig } from '@playwright/test';
 
+const backendPort = 3101;
+
 export default defineConfig({
 	testDir: 'e2e',
-	fullyParallel: true,
+	fullyParallel: false,
 	workers: 4,
 	retries: 1,
 	use: {
@@ -10,14 +12,14 @@ export default defineConfig({
 	},
 	webServer: [
 		{
-			command: 'pnpm --dir backend build && pnpm --dir backend start',
-			port: 3001,
+			command: `PORT=${backendPort} pnpm --dir backend build && PORT=${backendPort} pnpm --dir backend start`,
+			port: backendPort,
 			timeout: 120_000,
 			reuseExistingServer: false
 		},
 		{
 			command:
-				'VITE_PUBLIC_BACKEND_URL=http://localhost:3001 pnpm run build && VITE_PUBLIC_BACKEND_URL=http://localhost:3001 pnpm run preview -- --port 4173',
+				`VITE_PUBLIC_BACKEND_URL=http://localhost:${backendPort} pnpm run build && VITE_PUBLIC_BACKEND_URL=http://localhost:${backendPort} pnpm run preview -- --port 4173`,
 			port: 4173,
 			timeout: 300_000,
 			reuseExistingServer: false

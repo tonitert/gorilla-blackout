@@ -77,10 +77,16 @@
 
 	async function refreshMultiplayerResumeAvailability() {
 		loadingMultiplayerResume = true;
-		const availability = await getMultiplayerResumeAvailability();
-		multiplayerResumeAvailability = availability;
-		resumeAvailabilityCheckCount += 1;
-		loadingMultiplayerResume = false;
+
+		try {
+			const availability = await getMultiplayerResumeAvailability();
+			multiplayerResumeAvailability = availability;
+		} catch (error) {
+			console.error('Failed to refresh multiplayer resume availability:', error);
+		} finally {
+			resumeAvailabilityCheckCount += 1;
+			loadingMultiplayerResume = false;
+		}
 	}
 
 	async function onRejoinMultiplayer() {

@@ -37,7 +37,8 @@
 	const useDeterministicE2EDice =
 		typeof window !== 'undefined' && e2eMode && urlSearchParams?.get('randomDice') !== '1';
 	const autoResolveTilesInE2EMode = e2eMode && urlSearchParams?.get('playTiles') !== '1';
-	const shouldShowTooltip = $derived(IsUsingKeyboard.current);
+	const isUsingKeyboard = new IsUsingKeyboard();
+	const shouldShowTooltip = $derived(isUsingKeyboard.current);
 
 	const leftBorderSize = 2;
 	const topBorderSize = 2;
@@ -226,6 +227,8 @@
 			}));
 			return;
 		}
+
+		serverDiceRollStore.set(null);
 
 		gameState.update((state) => ({
 			...state,
