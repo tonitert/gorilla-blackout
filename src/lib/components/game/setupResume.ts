@@ -1,5 +1,8 @@
 import type { MultiplayerResumeAvailability } from '$lib/multiplayer/client';
 
+const resumeAvailabilityRetryDelayMs = 1_000;
+const maxMissingSessionChecks = 5;
+
 export function getResumeAvailabilityRefreshDelayMs(options: {
 	resumeAvailabilityCheckCount: number;
 	loadingMultiplayerResume: boolean;
@@ -20,9 +23,12 @@ export function getResumeAvailabilityRefreshDelayMs(options: {
 		return 0;
 	}
 
-	if (!multiplayerResumeAvailability.session && resumeAvailabilityCheckCount >= 2) {
+	if (
+		!multiplayerResumeAvailability.session &&
+		resumeAvailabilityCheckCount >= maxMissingSessionChecks
+	) {
 		return null;
 	}
 
-	return 3_000;
+	return resumeAvailabilityRetryDelayMs;
 }

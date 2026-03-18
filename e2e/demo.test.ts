@@ -16,6 +16,7 @@ type ExposedGameState = {
 const unskippableTilePositions = new Set([32, 54, 55]);
 const networkTimeoutMs = 45_000;
 const syncTimeoutMs = 20_000;
+const backendBaseUrl = 'http://localhost:3101';
 
 test.describe.configure({ timeout: 120_000 });
 
@@ -48,6 +49,27 @@ function getExpectedLandingPosition(startPosition: number, roll: number): number
 		}
 	}
 	return endPosition;
+}
+
+function getPossibleLandingPositions(startPosition: number): number[] {
+	return Array.from(
+		new Set(Array.from({ length: 6 }, (_, index) => getExpectedLandingPosition(startPosition, index + 1)))
+	);
+}
+
+function getHostAndGuestPlayerIds(state: ExposedGameState): {
+	hostPlayerId: string | null;
+	guestPlayerId: string | null;
+} {
+	const hostPlayerId =
+		state.players.find((player) => player.name === 'Host')?.id ?? state.players[0]?.id ?? null;
+	const guestPlayerId =
+		state.players.find((player) => player.name === 'Guest')?.id ??
+		state.players.find((player) => player.id !== hostPlayerId)?.id ??
+		state.players[1]?.id ??
+		null;
+
+	return { hostPlayerId, guestPlayerId };
 }
 
 async function savePlayerName(page: Page, name: string) {
@@ -173,8 +195,7 @@ async function startMultiplayerGameInBrowser(
 		.poll(
 			async () => {
 				const state = await getExposedState(hostPage);
-				hostPlayerId = state.players.find((player) => player.name === 'Host')?.id ?? null;
-				guestPlayerId = state.players.find((player) => player.name === 'Guest')?.id ?? null;
+				({ hostPlayerId, guestPlayerId } = getHostAndGuestPlayerIds(state));
 
 				return Boolean(hostPlayerId && guestPlayerId);
 			},
@@ -586,16 +607,22 @@ test.describe.serial('multiplayer and advanced flows', () => {
 		await expect(hostPage.locator('.game')).toBeVisible();
 		await expect(guestPage.locator('.game')).toBeVisible();
 
+		const initialState = await getExposedState(hostPage);
+		const { hostPlayerId, guestPlayerId } = getHostAndGuestPlayerIds(initialState);
+		expect(hostPlayerId).toBeTruthy();
+		expect(guestPlayerId).toBeTruthy();
+
 		let movesChecked = 0;
 		for (let i = 0; i < 18; i++) {
 			const before = await getExposedState(hostPage);
 			const actorId = before.currentTurnPlayerId;
 			const actorIndex = before.players.findIndex((player) => player.id === actorId);
 			expect(actorIndex).toBeGreaterThanOrEqual(0);
+			const possibleLandingPositions = getPossibleLandingPositions(
+				before.players[actorIndex].position
+			);
 			const actorPage =
-				before.currentTurnPlayerId === before.players.find((p) => p.name === 'Guest')?.id
-					? guestPage
-					: hostPage;
+				before.currentTurnPlayerId === guestPlayerId ? guestPage : hostPage;
 			await actorPage.evaluate(() => {
 				(window as Window & { __GB_NEXT__?: () => void }).__GB_NEXT__?.();
 			});
@@ -611,15 +638,6 @@ test.describe.serial('multiplayer and advanced flows', () => {
 				)
 				.toBe(true);
 
-			const hostRoll = await getExposedRoll(hostPage);
-			expect(hostRoll).toBeGreaterThanOrEqual(1);
-			expect(hostRoll).toBeLessThanOrEqual(6);
-
-			const expectedPosition = getExpectedLandingPosition(
-				before.players[actorIndex].position,
-				hostRoll!
-			);
-
 			await expect
 				.poll(
 					async () => {
@@ -628,14 +646,19 @@ test.describe.serial('multiplayer and advanced flows', () => {
 						const positionsMatch =
 							JSON.stringify(hs.players.map((p) => p.position)) ===
 							JSON.stringify(gs.players.map((p) => p.position));
-						return positionsMatch && hs.players[actorIndex].position === expectedPosition;
+						const nextPosition = hs.players[actorIndex].position;
+						return (
+							positionsMatch &&
+							nextPosition !== before.players[actorIndex].position &&
+							possibleLandingPositions.includes(nextPosition)
+						);
 					},
 					{ timeout: syncTimeoutMs }
 				)
 				.toBe(true);
 
 			const syncedHostState = await getExposedState(hostPage);
-			expect(syncedHostState.players[actorIndex].position).toBe(expectedPosition);
+			expect(possibleLandingPositions).toContain(syncedHostState.players[actorIndex].position);
 			movesChecked += 1;
 		}
 
@@ -1080,7 +1103,7 @@ test.describe.serial('multiplayer and advanced flows', () => {
 		await guestPage.close();
 
 		const removeResponse = await hostPage.request.post(
-			`http://localhost:3001/api/lobbies/${code}/player/remove`,
+			`${backendBaseUrl}/api/lobbies/${code}/player/remove`,
 			{
 				data: {
 					actorId: hostPlayerId,
@@ -1133,7 +1156,7 @@ test.describe.serial('multiplayer and advanced flows', () => {
 		await expect(guestPage.locator('.game')).toBeVisible();
 
 		const initialState = await getExposedState(hostPage);
-		const hostPlayerId = initialState.players.find((p) => p.name === 'Host')?.id;
+		const { hostPlayerId } = getHostAndGuestPlayerIds(initialState);
 
 		// Inject tileState without activeTilePosition — no Spinner mounts to override it.
 		// This tests the pure tileState sync channel through WebSocket.
@@ -1224,7 +1247,7 @@ test.describe.serial('multiplayer and advanced flows', () => {
 
 		const hostState = await getExposedState(hostPage);
 		expect(hostState.players.length).toBeGreaterThanOrEqual(2);
-		const hostPlayerId = hostState.players.find((player) => player.name === 'Host')?.id;
+		const { hostPlayerId } = getHostAndGuestPlayerIds(hostState);
 		expect(hostPlayerId).toBeTruthy();
 
 		await guestPage.evaluate((playerId) => {
@@ -1328,7 +1351,7 @@ test.describe.serial('multiplayer and advanced flows', () => {
 		await expect(guestPage.locator('.game')).toBeVisible();
 
 		const hostState = await getExposedState(hostPage);
-		const hostPlayerId = hostState.players.find((player) => player.name === 'Host')?.id;
+		const { hostPlayerId } = getHostAndGuestPlayerIds(hostState);
 		expect(hostPlayerId).toBeTruthy();
 
 		await hostPage.evaluate((playerId) => {

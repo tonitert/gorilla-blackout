@@ -1,4 +1,4 @@
-import type { PlayerList } from '../../Setup.svelte';
+import type { PlayerList } from '../../PlayerSelector.svelte';
 
 export class ElementProps {
 	players?: PlayerList;
