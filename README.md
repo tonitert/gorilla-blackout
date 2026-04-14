@@ -77,6 +77,13 @@ pnpm run preview
 
 ## Building
 
+### Building with Nix
+
+```bash
+nix build .#backend-image .#web-image 2>&1
+nix build .#web-image .#web-image 2>&1
+``
+
 Build the application for production:
 
 ```bash
