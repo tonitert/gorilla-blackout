@@ -23,3 +23,6 @@ pnpm run dev
 You must use the Playwright MCP server to completely test all changes in the browser.
 Write unit and UI tests for new changes.
 Test new changes after writing them.
+## Translations
+
+UI text is translated with Paraglide (`messages/fi.json`, `messages/en.json`). Finnish is the default language. Never hardcode user-visible text: add a key to both message files and call `m.key()` from `$lib/paraglide/messages`. In module-level data (tiles, wheel options, announcements), store a getter such as `() => m.key()` so the text follows the selected language. Images are not translated.

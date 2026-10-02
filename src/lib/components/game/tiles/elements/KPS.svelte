@@ -3,6 +3,7 @@
 	import { ElementPropsTile } from './elementProps';
 	import { getRandomIntExcluding } from '$lib/helpers/wait';
 	import { isValidTargetIndex } from './advancedTileState';
+	import { m } from '$lib/paraglide/messages';
 
 	const targetKey = 'kps_targetIndex';
 	const {
@@ -57,6 +58,6 @@
 
 {#if targetIndex !== null}
 	<p class="text-center text-xl">
-		Pelaa kivi-paperi-sakset pelaajan {players[targetIndex].name} kanssa. Häviäjä juo shotin.
+		{m.tile_kps_text({ name: players[targetIndex].name })}
 	</p>
 {/if}

@@ -7,21 +7,30 @@
 	import wheel5050 from '$lib/assets/5050.png';
 	import wheelImage from '$lib/assets/rajupyora.png';
 	import MoveToStart from './raju/MoveToStart.svelte';
+	import { m } from '$lib/paraglide/messages';
 
-	const { players, setActionButtonText, movePlayer, currentPlayerIndex, positions, tileState, setTileState, canAct }: ElementProps =
-		$props();
+	const {
+		players,
+		setActionButtonText,
+		movePlayer,
+		currentPlayerIndex,
+		positions,
+		tileState,
+		setTileState,
+		canAct
+	}: ElementProps = $props();
 
 	let spinnerInstance: SvelteComponent | undefined = $state(undefined);
 
 	const options: SpinnerOption<any>[] = [
 		{
-			name: 'Ryhmäshotti!'
+			name: () => m.wheel_group_shot()
 		},
 		{
-			name: 'Juo ja jaa 10!'
+			name: () => m.wheel_drink_and_give10()
 		},
 		{
-			name: 'Palaa aloitusruutuun!',
+			name: () => m.wheel_back_to_start(),
 			element: MoveToStart,
 			props: {
 				movePlayer,
@@ -32,35 +41,38 @@
 		// 50/50
 		new SpinnerOption(undefined, Spinner, {
 			animation: false,
-			options: [new SpinnerOption('Ota 3 shottia!'), new SpinnerOption('Jaa 3 shottia!')],
+			options: [
+				new SpinnerOption(() => m.wheel_take3_shots()),
+				new SpinnerOption(() => m.wheel_give3_shots())
+			],
 			spinsBeforeStop: 6,
 			spinnerImage: wheel5050,
 			depth: 1,
 			setActionButtonText: setActionButtonText
 		}),
 		{
-			name: 'Vähiten kännissä juo 10!'
+			name: () => m.wheel_least_drunk_drinks10()
 		},
 		{
-			name: 'Juo kortin luvun verran!'
+			name: () => m.wheel_drink_card_value()
 		},
 		{
-			name: 'Juo 5!'
+			name: () => m.wheel_drink5()
 		},
-		new SpinnerOption('Supersääntö!', Text, {
-			text: 'Keksi peliin supersääntö! Erona tavalliseen sääntöön supersääntö pysyy voimassa koko pelin ajan, ja rangaistus sen rikkomisesta on shotti.'
+		new SpinnerOption(() => m.wheel_super_rule(), Text, {
+			text: () => m.wheel_super_rule_text()
 		}),
 		{
-			name: 'Jaa 50!'
+			name: () => m.wheel_give50()
 		},
 		{
-			name: 'Tyhjennä juoma!'
+			name: () => m.wheel_empty_drink()
 		},
 		{
-			name: 'Juo ja jaa 10 huikkaa!'
+			name: () => m.wheel_drink_and_give10_sips()
 		},
 		{
-			name: 'Ota shotti!'
+			name: () => m.wheel_take_shot()
 		}
 	];
 	const spinsBeforeStop = 6;

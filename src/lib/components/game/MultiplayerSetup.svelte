@@ -17,14 +17,16 @@
 	import { gameStateStore } from '$lib/gameState.svelte';
 	import { playerImages } from './playerImages';
 	import { Player } from '$lib/player';
+	import { m } from '$lib/paraglide/messages';
 
 	type SetupMode = 'host' | 'join' | null;
 	type PlayerImage = keyof typeof playerImages | 'default';
 
 	let setupMode = $state<SetupMode>(null);
 	let code = $state('');
-	let error = $state('');
-	let localName = $state('Pelaaja');
+	// Stored as a message getter so the error re-translates if the language changes.
+	let error = $state<(() => string) | null>(null);
+	let localName = $state(m.multi_default_name());
 	let localImage = $state<PlayerImage>('default');
 	let appliedJoinCode = $state(false);
 
@@ -73,45 +75,45 @@
 
 	async function onCreate() {
 		try {
-			error = '';
-			await createLobby('Pelaaja', 'default');
+			error = null;
+			await createLobby(m.multi_default_name(), 'default');
 		} catch {
-			error = 'Pelin luonti epäonnistui';
+			error = m.multi_create_failed;
 		}
 	}
 
 	async function onJoin() {
 		try {
-			error = '';
+			error = null;
 			if (!isValidLobbyCode(code)) {
-				error = 'Koodin tulee olla 6 merkkiä pitkä';
+				error = m.multi_code_length;
 				return;
 			}
-			await joinLobby(normalizeLobbyCode(code), 'Pelaaja', 'default');
+			await joinLobby(normalizeLobbyCode(code), m.multi_default_name(), 'default');
 		} catch {
-			error = 'Liittyminen epäonnistui';
+			error = m.multi_join_failed;
 		}
 	}
 
 	async function onSaveImage(image: PlayerImage) {
 		try {
-			error = '';
+			error = null;
 			await updateLobbyPlayer({ image });
 		} catch {
-			error = 'Hahmon tallennus epäonnistui (hahmo voi olla jo valittu)';
+			error = m.common_image_save_failed;
 		}
 	}
 
 	async function onSaveName() {
 		if (!localName.trim()) {
-			error = 'Nimi on pakollinen';
+			error = m.common_name_required;
 			return;
 		}
 		try {
-			error = '';
+			error = null;
 			await updateLobbyPlayer({ name: localName });
 		} catch {
-			error = 'Nimen tallennus epäonnistui';
+			error = m.common_name_save_failed;
 		}
 	}
 
@@ -125,48 +127,49 @@
 </script>
 
 <div class="shadow-grey mt-6 flex flex-col gap-4 rounded-xl p-4 ring ring-gray-600">
-	<h3 class="text-lg">Monen laitteen peli (Beta)</h3>
+	<h3 class="text-lg">{m.multi_heading()}</h3>
 
 	{#if !$multiplayerStore.lobby}
 		<div class="flex gap-2">
 			<Button
 				variant={setupMode === 'host' ? 'default' : 'outline'}
-				onclick={() => (setupMode = 'host')}>Hostaa peli</Button
+				onclick={() => (setupMode = 'host')}>{m.multi_host()}</Button
 			>
 			<Button
 				variant={setupMode === 'join' ? 'default' : 'outline'}
-				onclick={() => (setupMode = 'join')}>Liity peliin</Button
+				onclick={() => (setupMode = 'join')}>{m.multi_join()}</Button
 			>
 		</div>
 
 		{#if setupMode === 'host'}
-			<Button onclick={onCreate}>Luo peli</Button>
+			<Button onclick={onCreate}>{m.multi_create()}</Button>
 		{:else if setupMode === 'join'}
-			<label for="multi-code">Liittymiskoodi</label>
+			<label for="multi-code">{m.multi_join_code()}</label>
 			<Input id="multi-code" bind:value={code} placeholder="ABC123" />
-			<Button data-testid="join-lobby-submit" onclick={onJoin} disabled={!code}>Liity peliin</Button
+			<Button data-testid="join-lobby-submit" onclick={onJoin} disabled={!code}
+				>{m.multi_join()}</Button
 			>
 		{/if}
 	{/if}
 
 	{#if error}
-		<p class="text-red-500">{error}</p>
+		<p class="text-red-500">{error()}</p>
 	{/if}
 
 	{#if $multiplayerStore.lobby}
 		<div class="rounded border p-3">
 			<div class="rounded-xl border border-gray-500 bg-black/20 p-4 text-center">
-				<p class="text-sm tracking-[0.2em] text-gray-300 uppercase">Liity peliin</p>
+				<p class="text-sm tracking-[0.2em] text-gray-300 uppercase">{m.multi_join()}</p>
 				<p class="mt-2 text-3xl font-semibold tracking-[0.3em] text-white">
 					{$multiplayerStore.lobby.code}
 				</p>
 				<p class="mt-3 text-sm text-gray-300">
-					Skannaa QR-koodi, niin liittymiskoodi tayttyy automaattisesti.
+					{m.common_scan_qr()}
 				</p>
 				{#if inviteUrl}
 					<div class="mt-4 flex justify-center">
 						<QrCode
-							alt={`Liity peliin koodilla ${$multiplayerStore.lobby.code}`}
+							alt={m.common_join_with_code_alt({ code: $multiplayerStore.lobby.code })}
 							value={inviteUrl}
 						/>
 					</div>
@@ -174,7 +177,7 @@
 			</div>
 
 			<div class="mt-3 rounded border border-gray-500 p-3">
-				<label for="multi-name">Nimi</label>
+				<label for="multi-name">{m.common_name()}</label>
 				<Input id="multi-name" class="mt-2" bind:value={localName} onblur={onSaveName} />
 
 				<Collapsible.Root class="mt-5">
@@ -186,9 +189,9 @@
 						})}
 					>
 						<div class="flex w-full items-center space-x-2">
-							<h4 class="text-sm font-semibold">Valitse pelihahmo</h4>
+							<h4 class="text-sm font-semibold">{m.common_choose_character()}</h4>
 							<ChevronsUpDownIcon class="ml-auto" />
-							<span class="sr-only">Toggle</span>
+							<span class="sr-only">{m.common_toggle()}</span>
 						</div>
 					</Collapsible.Trigger>
 					<Collapsible.Content>
@@ -202,7 +205,7 @@
 									e.preventDefault();
 								}}
 							>
-								<p class="text-center text-xs">Ei hahmoa</p>
+								<p class="text-center text-xs">{m.common_no_character()}</p>
 							</Toggle>
 							{#each Object.entries(playerImages) as [name, image] (name)}
 								<Toggle
@@ -230,7 +233,7 @@
 						{#if player.image !== 'default' && player.image in playerImages}
 							<img
 								src={playerImages[player.image as keyof typeof playerImages]}
-								alt={`${player.name} hahmo`}
+								alt={m.common_player_character_alt({ name: player.name })}
 								class="h-8 w-8 object-contain"
 							/>
 						{/if}
@@ -245,11 +248,11 @@
 						onclick={() => {
 							startLobbyGame();
 						}}
-						disabled={$multiplayerStore.lobby.players.length < 2}>Aloita monen laitteen peli</Button
+						disabled={$multiplayerStore.lobby.players.length < 2}>{m.multi_start()}</Button
 					>
 				</div>
 			{:else if !$multiplayerStore.isHost && !$multiplayerStore.lobby.inGame}
-				<p class="mt-6 text-center text-gray-400">Odotetaan pelin alkamista..</p>
+				<p class="mt-6 text-center text-gray-400">{m.multi_waiting_start()}</p>
 			{/if}
 			{#if $multiplayerStore.lobby.inGame}
 				<div class="mt-4">
@@ -275,7 +278,7 @@
 											inGame: true
 										})
 							}));
-						}}>Siirry peliin</Button
+						}}>{m.multi_go_to_game()}</Button
 					>
 				</div>
 			{/if}

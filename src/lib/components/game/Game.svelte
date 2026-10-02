@@ -30,6 +30,7 @@
 	import { canLocalMultiplayerPlayerAct } from '$lib/multiplayer/connection';
 	import { getActiveTileView } from './tiles/activeTile';
 	import type { ActiveTileTrigger } from './tiles/tileVariant';
+	import { m } from '$lib/paraglide/messages';
 
 	const colors = ['#3559e8', '#d8de23', '#12e627', '#db1229'];
 	const urlSearchParams =
@@ -82,7 +83,7 @@
 		gameState,
 		($gameState) =>
 			$gameState.players.find((p) => p.id === $gameState.currentTurnPlayerId) ??
-			new Player('Unknown', 'default')
+			new Player(m.game_unknown_player(), 'default')
 	);
 	let currentPlayerIndex = derived(gameState, ($gameState) =>
 		$gameState.players.findIndex((p) => p.id === $gameState.currentTurnPlayerId)
@@ -450,7 +451,7 @@
 				{:else}
 					<img
 						src={playerImages[$gameState.players[i].image]}
-						alt={`Player ${i + 1}`}
+						alt={m.game_player_alt({ number: i + 1 })}
 						class="absolute aspect-square drop-shadow-2xl"
 					/>
 				{/if}
@@ -459,7 +460,7 @@
 		<div class="absolute flex h-full w-full flex-col items-center justify-center">
 			{#if $gameState.phase === 'rolling'}
 				{#if $multiplayerStore.mode === 'multi' && !useDeterministicE2EDice && $serverDiceRollStore === null}
-					<p class="rounded bg-black/60 px-4 py-2 text-white">Heitetään noppaa...</p>
+					<p class="rounded bg-black/60 px-4 py-2 text-white">{m.game_rolling_dice()}</p>
 				{:else}
 					<Dice
 						result={onDiceRolled}
@@ -506,7 +507,7 @@
 	</style>
 	{#if $gameState.players.length > 0}
 		<p class="my-4 w-full grow-0 text-center text-2xl text-white">
-			Pelaajan {$currentPlayer.name} vuoro!
+			{m.game_turn({ name: $currentPlayer.name })}
 		</p>
 	{/if}
 
@@ -516,7 +517,7 @@
 				class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-black/75 px-4 text-center text-sm font-semibold text-white"
 				data-testid="multiplayer-reconnect-overlay"
 			>
-				Yhteys katkennut, yritetään uudelleenyhdistää..
+				{m.game_reconnecting()}
 			</div>
 		{/if}
 		{#snippet nextTurnButton()}
@@ -530,10 +531,10 @@
 				{currentTile !== null
 					? activeOverlayButtonText
 						? activeOverlayButtonText
-						: 'Sulje'
+						: m.game_close()
 					: allPlayersWon()
-						? 'Takaisin aloitusnäyttöön'
-						: 'Seuraava vuoro'}
+						? m.game_back_to_start()
+						: m.game_next_turn()}
 			</Button>
 		{/snippet}
 		{#if $gameState.spacebarTooltipShown || !shouldShowTooltip}
@@ -546,7 +547,7 @@
 					</Tooltip.Trigger>
 					<Tooltip.Content class="align-center flex gap-2 text-center">
 						<p class="text-lg">
-							Vinkki: Voit myös painaa välilyöntiä siirtyäksesi seuraavaan vuoroon!
+							{m.game_spacebar_tip()}
 						</p>
 						<button
 							onclick={() => {

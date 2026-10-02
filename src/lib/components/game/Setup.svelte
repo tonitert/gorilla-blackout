@@ -16,6 +16,7 @@
 	} from '$lib/multiplayer/client';
 	import { getJoinCodeFromSearch } from '$lib/multiplayer/invite';
 	import { getResumeAvailabilityRefreshDelayMs } from './setupResume';
+	import { m } from '$lib/paraglide/messages';
 
 	let {
 		onStart,
@@ -33,7 +34,7 @@
 	});
 	let loadingMultiplayerResume = $state(false);
 	let rejoiningMultiplayer = $state(false);
-	let multiplayerResumeError = $state('');
+	let multiplayerResumeError = $state<(() => string) | null>(null);
 	let resumeAvailabilityCheckCount = $state(0);
 
 	$effect(() => {
@@ -95,12 +96,12 @@
 		}
 
 		rejoiningMultiplayer = true;
-		multiplayerResumeError = '';
+		multiplayerResumeError = null;
 
 		try {
 			await rejoinMultiplayerGame(multiplayerResumeAvailability.session);
 		} catch {
-			multiplayerResumeError = 'Moninpeliin liittyminen epäonnistui';
+			multiplayerResumeError = m.setup_rejoin_failed;
 			await refreshMultiplayerResumeAvailability();
 		} finally {
 			rejoiningMultiplayer = false;
@@ -108,19 +109,15 @@
 	}
 </script>
 
-<div class="m-auto flex max-w-200 flex-col space-y-6 p-5">
+<div class="m-auto flex max-w-200 flex-col space-y-6 p-5 pt-14">
 	<h1>
-		<img src={logo} alt="Gorilla Blackout - rankka juomapeli opiskelijoille!" />
+		<img src={logo} alt={m.setup_logo_alt()} />
 	</h1>
 
 	<p class="text-lg">
-		Tervetuloa Gorilla Blackoutiin, kahden opiskelijan kehittämään äärimmäisen rajuun juomapeliin!
-		Nopilla pelattavana lautapelinä luonnollisesti tavoitteena on päästä maaliin suorittaen tehtäviä
-		laudalla, mutta se on helpommin sanottu kuin tehty - ja peli on sitä rankempi, mitä enemmän
-		pelaajia on mukana!
+		{m.setup_intro_1()}
 		<br /><br />
-		Pelissä juodaan paljon sekä mietoja että vahvoja, joten suosittelemme pelaajia varustautumaan varsin
-		runsaasti. Onnea matkaan!
+		{m.setup_intro_2()}
 	</p>
 
 	<Announcements />
@@ -130,8 +127,8 @@
 		<div
 			class="pending-game shadow-grey mt-10 flex flex-col gap-2 rounded-xl p-3 shadow-2xl/30 ring ring-gray-600"
 		>
-			<h2 class="text-xl">Aikaisempi peli löytyi. Haluatko jatkaa?</h2>
-			<p>Pelaajat:</p>
+			<h2 class="text-xl">{m.setup_previous_game_found()}</h2>
+			<p>{m.setup_players_label()}</p>
 			<ul>
 				{#each pendingState.players as player}
 					<li>{player.name}</li>
@@ -141,7 +138,7 @@
 				<Button
 					onclick={() => {
 						gameStateStore.set(pendingState);
-					}}>Jatka peliä</Button
+					}}>{m.setup_continue_game()}</Button
 				>
 				<Button
 					data-testid="resume-multiplayer-submit"
@@ -151,25 +148,25 @@
 						multiplayerResumeAvailability.status !== 'available'}
 					onclick={onRejoinMultiplayer}
 				>
-					{rejoiningMultiplayer ? 'Liitytään...' : 'Liity moninpeliin'}
+					{rejoiningMultiplayer ? m.setup_joining() : m.setup_join_multiplayer()}
 				</Button>
 			</div>
 			{#if multiplayerResumeError}
-				<p class="text-red-500">{multiplayerResumeError}</p>
+				<p class="text-red-500">{multiplayerResumeError()}</p>
 			{/if}
 		</div>
 	{/if}
 
-	<h2 class="text-xl">Aloita peli</h2>
+	<h2 class="text-xl">{m.setup_start_game_heading()}</h2>
 
 	<div class="mt-4 flex gap-2">
 		<Button
 			variant={$multiplayerStore.mode === 'single' ? 'default' : 'outline'}
-			onclick={() => setMode('single')}>Yksi laite</Button
+			onclick={() => setMode('single')}>{m.setup_mode_single()}</Button
 		>
 		<Button
 			variant={$multiplayerStore.mode === 'multi' ? 'default' : 'outline'}
-			onclick={() => setMode('multi')}>Monen laitteen peli (Beta)</Button
+			onclick={() => setMode('multi')}>{m.setup_mode_multi()}</Button
 		>
 	</div>
 
@@ -181,12 +178,10 @@
 </div>
 <footer class="p-5 text-center text-sm text-gray-500">
 	<p>
-		Gorilla Blackout on täysin ilmainen opiskelijoille suunnattu juomapeli, ja se on aina
-		pelattavissa suomeksi netissä osoitteessa blackout.beer.
+		{m.setup_footer_about()}
 	</p>
 	<p>
-		Ota yhteyttä kehittäjiin: <a class="underline" href="mailto:contact@blackout.beer"
-			>contact@blackout.beer</a
-		>
+		{m.setup_footer_contact()}
+		<a class="underline" href="mailto:contact@blackout.beer">contact@blackout.beer</a>
 	</p>
 </footer>

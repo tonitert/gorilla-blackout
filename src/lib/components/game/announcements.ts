@@ -5,8 +5,8 @@
  *
  * Each announcement can have:
  * - id: Unique identifier for the announcement
- * - title: String or Svelte component for the title
- * - content: String or Svelte component for the content
+ * - title: Translated text getter (e.g. () => m.some_key()) or { component } for the title
+ * - content: Translated text getter or { component } for the content
  * - date: Optional date string (displayed in the UI)
  *
  * To add a new announcement with a Svelte component:
@@ -19,28 +19,33 @@
  *
  * {
  *   id: 'my-announcement',
- *   title: 'My Title',
- *   content: MyAnnouncement,
+ *   title: () => m.my_title(), // add the key to messages/fi.json and messages/en.json
+ *   content: { component: MyAnnouncement },
  *   date: '2025-11-23'
  * }
  */
 
 import type { Component } from 'svelte';
 import Telegram from './announcements/Telegram.svelte';
+import { m } from '$lib/paraglide/messages';
+import type { LocalizedText } from '$lib/i18n/text';
+
+// Components are wrapped in an object because both Svelte components and translation getters are
+// plain functions and could not be told apart otherwise.
+export type AnnouncementPart = LocalizedText | { component: Component };
 
 export interface Announcement {
 	id: string;
-	title: string | Component;
-	content: string | Component;
+	title: AnnouncementPart;
+	content: AnnouncementPart;
 	date?: string;
 }
 
 export const announcements: Announcement[] = [
 	{
 		id: 'welcome',
-		title: 'Gorilla Blackoutilla on nyt Telegram-kanava!',
-		content:
-			Telegram,
+		title: () => m.announce_telegram_title(),
+		content: { component: Telegram },
 		date: '2025-11-23'
 	}
 ];

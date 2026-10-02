@@ -36,6 +36,19 @@ describe('getActiveTileView', () => {
 		assert.ok(tile?.element);
 	});
 
+	it('resolves translated message getters when selecting a tile', () => {
+		let locale = 'fi';
+		const source = {
+			message: () => (locale === 'fi' ? 'Ota shotti!' : 'Take a shot!'),
+			customElement: (() => null) as never
+		};
+
+		assert.equal(selectActiveTileView(source, 'landing').message, 'Ota shotti!');
+
+		locale = 'en';
+		assert.equal(selectActiveTileView(source, 'landing').message, 'Take a shot!');
+	});
+
 	it('falls back to the landing variant when no move-start variant exists', () => {
 		const tile = selectActiveTileView(
 			{

@@ -3,6 +3,7 @@
 	import { ElementPropsTile } from './elementProps';
 	import { getRandomIntExcluding } from '$lib/helpers/wait';
 	import { isValidTargetIndex } from './advancedTileState';
+	import { m } from '$lib/paraglide/messages';
 
 	const targetKey = 'challenge_targetIndex';
 	const {
@@ -57,6 +58,6 @@
 
 {#if targetIndex !== null}
 	<p class="text-center text-xl">
-		Pelaaja {players[targetIndex].name} keksii sinulle haasteen! Jos et tee haastetta, juo 10 huikkaa.
+		{m.tile_challenge_text({ name: players[targetIndex].name })}
 	</p>
 {/if}

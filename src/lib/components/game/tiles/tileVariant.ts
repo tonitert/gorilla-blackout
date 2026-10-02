@@ -1,17 +1,18 @@
 import type { Component } from 'svelte';
 import type { ElementProps } from './elements/elementProps';
+import { resolveText, type LocalizedText } from '../../../i18n/text';
 
 export type ActiveTileTrigger = 'landing' | 'moveStart';
 
 export interface TileVariantSource {
 	image?: string;
-	message?: string;
+	message?: LocalizedText;
 	customElement?: Component<
 		ElementProps & Record<string, unknown>,
 		{ onActionButtonClick?: () => void }
 	>;
 	props?: Record<string, unknown>;
-	moveStartMessage?: string;
+	moveStartMessage?: LocalizedText;
 	moveStartElement?: Component<
 		ElementProps & Record<string, unknown>,
 		{ onActionButtonClick?: () => void }
@@ -34,7 +35,10 @@ export function selectActiveTileView(
 
 	return {
 		image: tile.image,
-		message: usesMoveStartVariant ? (tile.moveStartMessage ?? tile.message) : tile.message,
+		// Resolved here (inside Game's $derived) so tile text follows the selected language.
+		message: resolveText(
+			usesMoveStartVariant ? (tile.moveStartMessage ?? tile.message) : tile.message
+		),
 		element: usesMoveStartVariant ? tile.moveStartElement : tile.customElement,
 		props: usesMoveStartVariant ? tile.moveStartProps : tile.props
 	};
