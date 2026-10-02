@@ -1,3 +1,6 @@
+// Relative import so the tsx unit test runner (which has no $lib alias) can load this module.
+import { m } from '../../../../paraglide/messages.js';
+
 export type SpinnerStage =
 	| 'starting'
 	| 'waitingForAnimation'
@@ -10,14 +13,14 @@ export type DiceTileStage = 'waitingForRoll' | 'rolling' | 'resolved';
 
 export function getSpinnerButtonText(stage: SpinnerStage): string | null {
 	if (stage === 'waitingForSpin') {
-		return 'Pyöräytä pyörää';
+		return m.wheel_spin();
 	}
 
 	if (stage === 'result') {
 		return null;
 	}
 
-	return 'Odota..';
+	return m.wheel_wait();
 }
 
 export function getSpinnerLayerVisibility(stage: SpinnerStage, animationEnabled: boolean) {
@@ -34,11 +37,11 @@ export function getSpinnerLayerVisibility(stage: SpinnerStage, animationEnabled:
 
 export function getDiceTileButtonText(stage: DiceTileStage): string | null {
 	if (stage === 'waitingForRoll') {
-		return 'Heitä noppaa';
+		return m.dice_roll();
 	}
 
 	if (stage === 'rolling') {
-		return 'Pyöritetään..';
+		return m.dice_rolling();
 	}
 
 	return null;

@@ -19,6 +19,7 @@
 		updateLobbyPlayer
 	} from '$lib/multiplayer/client';
 	import { canRemovePlayer as canRemoveMultiplayerPlayer } from '$lib/multiplayer/playerPermissions';
+	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
 		players: Player[];
@@ -33,7 +34,8 @@
 	type PlayerImage = keyof typeof playerImages | 'default';
 	let localName = $state('');
 	let localImage = $state<PlayerImage>('default');
-	let multiplayerError = $state('');
+	// Stored as a message getter so the error re-translates if the language changes.
+	let multiplayerError = $state<(() => string) | null>(null);
 
 	const multiplayerPlayers = $derived.by(() => {
 		if (mode !== 'multi') {
@@ -93,24 +95,24 @@
 
 	async function onSaveName() {
 		if (!localName.trim()) {
-			multiplayerError = 'Nimi on pakollinen';
+			multiplayerError = m.common_name_required;
 			return;
 		}
 
 		try {
-			multiplayerError = '';
+			multiplayerError = null;
 			await updateLobbyPlayer({ name: localName.trim() });
 		} catch {
-			multiplayerError = 'Nimen tallennus epäonnistui';
+			multiplayerError = m.common_name_save_failed;
 		}
 	}
 
 	async function onSaveImage(image: PlayerImage) {
 		try {
-			multiplayerError = '';
+			multiplayerError = null;
 			await updateLobbyPlayer({ image });
 		} catch {
-			multiplayerError = 'Hahmon tallennus epäonnistui (hahmo voi olla jo valittu)';
+			multiplayerError = m.common_image_save_failed;
 		}
 	}
 
@@ -120,13 +122,13 @@
 		}
 
 		try {
-			multiplayerError = '';
+			multiplayerError = null;
 			await removeLobbyPlayer(playerId);
 			if (playerId === $multiplayerStore.playerId) {
 				open = false;
 			}
 		} catch {
-			multiplayerError = 'Pelaajan poistaminen epäonnistui';
+			multiplayerError = m.editor_remove_player_failed;
 		}
 	}
 
@@ -138,27 +140,31 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Trigger>
-		<Button size="lg" class="m-auto grow-0" variant="outline" {disabled}>Muokkaa pelaajia</Button>
+		<Button size="lg" class="m-auto grow-0" variant="outline" {disabled}
+			>{m.editor_edit_players()}</Button
+		>
 	</Dialog.Trigger>
 	<Dialog.Content class="max-h-[calc(100vh-24px)] overflow-y-auto sm:max-w-[425px]">
 		{#if mode === 'multi'}
 			<div class="space-y-4">
 				{#if inviteCode && inviteUrl}
 					<div class="rounded-xl border border-gray-500 bg-black/20 p-4 text-center">
-						<p class="text-sm tracking-[0.2em] text-gray-300 uppercase">Liity kesken pelin</p>
+						<p class="text-sm tracking-[0.2em] text-gray-300 uppercase">
+							{m.editor_join_mid_game()}
+						</p>
 						<p class="mt-2 text-3xl font-semibold tracking-[0.3em] text-white">{inviteCode}</p>
 						<p class="mt-3 text-sm text-gray-300">
-							Skannaa QR-koodi, niin liittymiskoodi tayttyy automaattisesti.
+							{m.common_scan_qr()}
 						</p>
 						<div class="mt-4 flex justify-center">
-							<QrCode alt={`Liity peliin koodilla ${inviteCode}`} value={inviteUrl} />
+							<QrCode alt={m.common_join_with_code_alt({ code: inviteCode })} value={inviteUrl} />
 						</div>
 					</div>
 				{/if}
 
 				{#if localPlayer}
 					<div class="rounded border border-gray-500 p-3">
-						<label for="in-game-multi-name" class="text-sm">Nimi</label>
+						<label for="in-game-multi-name" class="text-sm">{m.common_name()}</label>
 						<Input
 							id="in-game-multi-name"
 							class="mt-2"
@@ -175,9 +181,9 @@
 								})}
 							>
 								<div class="flex w-full items-center space-x-2">
-									<h4 class="text-sm font-semibold">Valitse pelihahmo</h4>
+									<h4 class="text-sm font-semibold">{m.common_choose_character()}</h4>
 									<ChevronsUpDownIcon class="ml-auto" />
-									<span class="sr-only">Toggle</span>
+									<span class="sr-only">{m.common_toggle()}</span>
 								</div>
 							</Collapsible.Trigger>
 							<Collapsible.Content>
@@ -191,7 +197,7 @@
 											e.preventDefault();
 										}}
 									>
-										<p class="text-center text-xs">Ei hahmoa</p>
+										<p class="text-center text-xs">{m.common_no_character()}</p>
 									</Toggle>
 									{#each Object.entries(playerImages) as [name, image] (name)}
 										<Toggle
@@ -215,14 +221,14 @@
 				{/if}
 
 				<div>
-					<h3 class="text-lg font-semibold">Pelaajat</h3>
+					<h3 class="text-lg font-semibold">{m.common_players()}</h3>
 					<ul class="mt-3 space-y-2">
 						{#each multiplayerPlayers as player (player.id)}
 							<li class="flex items-center gap-3 rounded-lg border border-gray-500 p-3">
 								{#if player.image !== 'default' && player.image in playerImages}
 									<img
 										src={playerImages[player.image as keyof typeof playerImages]}
-										alt={`${player.name} hahmo`}
+										alt={m.common_player_character_alt({ name: player.name })}
 										class="h-10 w-10 object-contain"
 									/>
 								{:else}
@@ -230,7 +236,9 @@
 								{/if}
 								<div>
 									<p class="font-medium">{player.name}</p>
-									<p class="text-sm text-gray-400">Ruutu {player.position}</p>
+									<p class="text-sm text-gray-400">
+										{m.editor_tile({ position: player.position })}
+									</p>
 								</div>
 								<Button
 									type="button"
@@ -239,7 +247,7 @@
 									disabled={!canRemovePlayer(player.id)}
 									onclick={() => onRemovePlayer(player.id)}
 								>
-									Poista
+									{m.common_remove()}
 								</Button>
 							</li>
 						{/each}
@@ -247,17 +255,17 @@
 				</div>
 
 				{#if multiplayerError}
-					<p class="text-red-500">{multiplayerError}</p>
+					<p class="text-red-500">{multiplayerError()}</p>
 				{/if}
 
 				<Button type="button" class="w-full" variant="destructive" onclick={onQuitGame}
-					>Poistu pelistä</Button
+					>{m.common_leave_game()}</Button
 				>
 			</div>
 		{:else}
 			<div class="space-y-4">
 				<PlayerSelector
-					submitText="Tallenna"
+					submitText={m.editor_save()}
 					compact={true}
 					onSubmit={(players) => {
 						onSubmit(players);
@@ -265,7 +273,9 @@
 					}}
 					onPlayerAdd={(player) => {
 						player.position = Math.min(
-							Math.floor(players.map((p) => p.position).reduce((a, b) => a + b, 0) / players.length),
+							Math.floor(
+								players.map((p) => p.position).reduce((a, b) => a + b, 0) / players.length
+							),
 							lastTilePosition - 1
 						);
 						return player;
@@ -274,7 +284,7 @@
 				/>
 
 				<Button type="button" class="w-full" variant="destructive" onclick={onQuitGame}
-					>Poistu pelistä</Button
+					>{m.common_leave_game()}</Button
 				>
 			</div>
 		{/if}

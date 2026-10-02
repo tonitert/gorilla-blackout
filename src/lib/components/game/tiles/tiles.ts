@@ -8,13 +8,15 @@ import DiceRollBack from './elements/DiceRollBack.svelte';
 import Dices35Back from './elements/Dices35Back.svelte';
 import SixToPass from './elements/SixToPass.svelte';
 import { tileImages } from '../tileImages';
+import { m } from '$lib/paraglide/messages';
+import type { LocalizedText } from '$lib/i18n/text';
 
 export interface Tile<T extends object, Y extends object> {
 	image?: string;
-	message?: string;
+	message?: LocalizedText;
 	customElement?: Component<ElementProps & T, { onActionButtonClick?: () => void }>;
 	props?: T;
-	moveStartMessage?: string;
+	moveStartMessage?: LocalizedText;
 	moveStartElement?: Component<ElementProps & Y, { onActionButtonClick?: () => void }>;
 	moveStartProps?: Y;
 	customWait?: boolean;
@@ -24,87 +26,87 @@ export interface Tile<T extends object, Y extends object> {
 const tileTypes: { [key: string]: Tile<any, any> } = {
 	challenge: {
 		image: tileImages.haaste,
-		message: 'Haaste!',
+		message: () => m.tile_challenge(),
 		customElement: Haaste
 	},
 	drink2: {
 		image: tileImages.kaksihuikkaa,
-		message: 'Juo 2 huikkaa!'
+		message: () => m.tile_drink2()
 	},
 	drink3: {
 		image: tileImages.kolmehuikkaa,
-		message: 'Juo 3 huikkaa!'
+		message: () => m.tile_drink3()
 	},
 	drink4: {
 		image: tileImages.neljahuikkaa,
-		message: 'Juo 4 huikkaa!'
+		message: () => m.tile_drink4()
 	},
 	paskaHeitto: {
 		image: tileImages.paskaHeitto,
-		message: 'Juo 5 huikkaa!'
+		message: () => m.tile_drink5()
 	},
 	drink5: {
 		image: tileImages.viisiHuikkaa,
-		message: 'Juo 5 huikkaa!'
+		message: () => m.tile_drink5()
 	},
 	give3: {
 		image: tileImages.jaa3,
-		message: 'Jaa 3 huikkaa!'
+		message: () => m.tile_give3()
 	},
 	give6: {
 		image: tileImages.jaa6,
-		message: 'Jaa 6 huikkaa!'
+		message: () => m.tile_give6()
 	},
 	give9: {
 		image: tileImages.jaa9,
-		message: 'Jaa 9 huikkaa!'
+		message: () => m.tile_give9()
 	},
 	mostDrunkDrinks3: {
 		image: tileImages.enitenSuba,
-		message: 'Eniten kännissä juo 3 huikkaa!'
+		message: () => m.tile_most_drunk_drinks3()
 	},
 	leastDrunkDrinks5: {
 		image: tileImages.vahitenSuba,
-		message: 'Vähiten kännissä juo 5 huikkaa!'
+		message: () => m.tile_least_drunk_drinks5()
 	},
 	everyoneDrinks2: {
 		image: tileImages.kaikkiJuo2,
-		message: 'Kaikki juo 2 huikkaa!'
+		message: () => m.tile_everyone_drinks2()
 	},
 	everyoneDrinks3ExceptYou: {
 		image: tileImages.kaikkiJuo3,
-		message: 'Kaikki juo 3 huikkaa, paitsi sinä!'
+		message: () => m.tile_everyone_drinks3_except_you()
 	},
 	onetwothree: {
 		image: tileImages.yksikaksikolme,
-		message: '1, 2, 3',
+		message: () => m.tile_onetwothree(),
 		customElement: Text,
 		props: {
-			text: 'Juo 1 huikka. Seuraava pelaaja juo 2, sitä seuraava 3 ja niin edelleen.'
+			text: () => m.tile_onetwothree_text()
 		}
 	},
 	shutup: {
 		image: tileImages.turpaHiljaa,
-		message: 'Jos puhut 5 minuutin aikana, juo 10 huikkaa.'
+		message: () => m.tile_shutup()
 	},
 	safe: {
 		image: tileImages.safe,
-		message: 'Safe!',
+		message: () => m.tile_safe(),
 		customElement: Text,
 		props: {
-			text: 'Tässä ruudussa ei tarvitse juoda.'
+			text: () => m.tile_safe_text()
 		}
 	},
 	shot: {
 		image: tileImages.shotti,
-		message: 'Ota shotti!'
+		message: () => m.tile_shot()
 	},
 	waterfall: {
 		image: tileImages.vesiputous,
-		message: 'Vesiputous',
+		message: () => m.tile_waterfall(),
 		customElement: Text,
 		props: {
-			text: 'Kaikki pelaajat aloittavat juomisen samaan aikaan. Kun lopetat, seuraava pelaaja saa lopettaa, sitten seuraava ja niin edelleen.'
+			text: () => m.tile_waterfall_text()
 		}
 	},
 	wheel: {
@@ -112,32 +114,32 @@ const tileTypes: { [key: string]: Tile<any, any> } = {
 	},
 	water: {
 		image: tileImages.valivesi,
-		message: 'Välivesi'
+		message: () => m.tile_water()
 	},
 	groupShot: {
 		image: tileImages.ryhmashotti,
-		message: 'Ryhmäshotti',
+		message: () => m.tile_group_shot(),
 		customElement: Text,
 		props: {
-			text: 'Kaikki ottavat shotin!'
+			text: () => m.tile_group_shot_text()
 		}
 	},
 	leftDrinks3: {
 		image: tileImages.vasenSipuli,
-		message: 'Vasen kaveri juo 3 huikkaa!'
+		message: () => m.tile_left_drinks3()
 	},
 	rightDrinks3: {
 		image: tileImages.oikeaMies,
-		message: 'Oikea kaveri juo 3 huikkaa!'
+		message: () => m.tile_right_drinks3()
 	},
 	dieRollBack: {
 		image: tileImages.noppa,
-		message: 'Nopanheitto takaisin!',
+		message: () => m.tile_die_roll_back(),
 		customElement: DiceRollBack
 	},
 	dieRollBackx2: {
 		image: tileImages.noppaX2,
-		message: 'Nopanheitto takaisin tuplana!',
+		message: () => m.tile_die_roll_back_x2(),
 		customElement: DiceRollBack,
 		props: {
 			multiplier: 2
@@ -150,27 +152,26 @@ const tileTypes: { [key: string]: Tile<any, any> } = {
 	},
 	rule: {
 		image: tileImages.saanto,
-		message:
-			'Keksi peliin sääntö! Sääntö on voimassa kunnes joku keksii uuden. Säännön rikkomisesta tulee viiden huikan sakko.'
+		message: () => m.tile_rule()
 	},
 	dices35back: {
 		image: tileImages.kolmekymmentaviisitaakse,
-		message: 'Heitä kahta noppaa. Kun silmälukujen summa on 11 tai 12, liiku 35 taakse!',
+		message: () => m.tile_dices35back(),
 		customElement: Dices35Back,
-		moveStartMessage: 'Heitä kahta noppaa. Kun silmälukujen summa on 11 tai 12, liiku 35 taakse!',
+		moveStartMessage: () => m.tile_dices35back(),
 		moveStartElement: Dices35Back
 	},
 	sixToWin: {
 		image: tileImages.noppaMaali,
-		message: 'Heitä noppaa. Saadessasi 6 voitat pelin!',
+		message: () => m.tile_six_to_win(),
 		unskippable: true,
 		customElement: SixToPass
 	},
 	win: {
-		message: 'Voitit pelin!',
+		message: () => m.tile_win(),
 		customElement: Text,
 		props: {
-			text: 'Muut pelaajat voivat vielä halutessaan jatkaa pelaamista.'
+			text: () => m.tile_win_text()
 		},
 		unskippable: true
 	}

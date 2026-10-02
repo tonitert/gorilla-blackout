@@ -16,7 +16,8 @@
 		"test:e2e": "pnpm run test:e2e:prepare && playwright test",
 		"test": "npm run test:unit && npm run test:e2e",
 		"deploy": "pnpm build && pnpx gh-pages --nojekyll -d build --no-history --cname blackout.beer",
-		"test:unit": "tsx --test src/lib/**/__tests__/*.test.ts"
+		"test:unit": "pnpm run i18n:compile && tsx --test src/lib/**/__tests__/*.test.ts",
+		"i18n:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --strategy localStorage baseLocale --silent"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",

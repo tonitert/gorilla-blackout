@@ -10,6 +10,7 @@
 	} from '$lib/multiplayer/client';
 	import { isE2EMode } from '$lib/testing/e2eMode';
 	import { get } from 'svelte/store';
+	import { m } from '$lib/paraglide/messages';
 
 	let pendingState = $state<GameState | undefined | 'loading'>('loading');
 	(async () => {
@@ -71,11 +72,8 @@
 </script>
 
 <svelte:head>
-	<title>Gorilla Blackout - rankka opiskelija-juomapeli! | Tehtäviä kahdelle tai useammalle</title>
-	<meta
-		name="description"
-		content="Raju juomapeli opiskelijoille! Heitä noppaa päästäksesi maaliin, mutta varo Rajua Pyörää, vesiputousta ja muita yllätyksiä! Tavoitteenasi on päästä maaliin, mutta matkalla saatat kohdata haasteita, tehtäviä, vesiputous-ruudun ja päästä juomaan shotteja."
-	/>
+	<title>{m.meta_title()}</title>
+	<meta name="description" content={m.meta_description()} />
 </svelte:head>
 
 <div>

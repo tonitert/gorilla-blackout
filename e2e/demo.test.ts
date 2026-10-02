@@ -394,6 +394,76 @@ test('single-device deterministic turns still advance players correctly', async 
 		});
 });
 
+test('language switcher defaults to Finnish and remembers English after reload', async ({
+	page
+}) => {
+	await page.goto('/?e2e=1');
+
+	await expect(page.locator('html')).toHaveAttribute('lang', 'fi');
+	await expect(page.getByTestId('language-fi')).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByRole('button', { name: 'Aloita peli' })).toBeVisible();
+
+	await page.getByTestId('language-en').click();
+
+	await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+	await expect(page.getByTestId('language-en')).toHaveAttribute('aria-pressed', 'true');
+	await expect(page.getByRole('button', { name: 'Start game' })).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Add player' })).toBeVisible();
+	await expect(page.getByText('Welcome to Gorilla Blackout')).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Aloita peli' })).toHaveCount(0);
+
+	await page.getByRole('button', { name: 'Start game' }).click();
+	await expect(page.getByText('Name is required').first()).toBeVisible();
+
+	// Validation errors already on screen follow the language too.
+	await page.getByTestId('language-fi').click();
+	await expect(page.getByText('Nimi on pakollinen').first()).toBeVisible();
+	await page.getByTestId('language-en').click();
+	await expect(page.getByText('Name is required').first()).toBeVisible();
+
+	await page.reload();
+	await expect(page.getByRole('button', { name: 'Start game' })).toBeVisible();
+	await expect(page).toHaveTitle(/hardcore student drinking game/);
+
+	await page.getByTestId('language-fi').click();
+	await expect(page.getByRole('button', { name: 'Aloita peli' })).toBeVisible();
+});
+
+test('switching language mid-game translates the open tile without losing game state', async ({
+	page
+}) => {
+	await startSingleDeviceGame(page, '/?e2e=1&playTiles=1');
+
+	await page.evaluate(() => {
+		const target = window as Window & {
+			__GB_INJECT_STATE__?: (partial: Record<string, unknown>) => void;
+		};
+		target.__GB_INJECT_STATE__?.({
+			phase: 'tile',
+			activeTilePosition: 5,
+			activeTileTrigger: 'landing',
+			activeTileSessionId: 1,
+			tileState: null
+		});
+	});
+
+	const game = page.locator('.game');
+	await expect(game.getByText('Ota shotti!')).toBeVisible();
+	await expect(page.getByRole('button', { name: 'Sulje' })).toBeVisible();
+	await expect(page.getByText('Pelaajan Alpha vuoro!')).toBeVisible();
+
+	await page.getByTestId('language-en').click();
+
+	await expect(game.getByText('Take a shot!')).toBeVisible();
+	await expect(game.getByText('Ota shotti!')).toHaveCount(0);
+	await expect(page.getByRole('button', { name: 'Close' })).toBeVisible();
+	await expect(page.getByText("Alpha's turn!")).toBeVisible();
+
+	const state = await getExposedState(page);
+	expect(state.activeTilePosition).toBe(5);
+	expect(state.players.map((player) => player.name)).toEqual(['Alpha', 'Beta']);
+});
+
 test('starting a turn on a move-start tile opens that interaction for the current player', async ({
 	page
 }) => {

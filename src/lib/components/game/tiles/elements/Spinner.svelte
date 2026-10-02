@@ -1,11 +1,12 @@
 <script lang="ts" module>
 	import { ElementProps } from './elementProps';
+	import type { LocalizedText } from '$lib/i18n/text';
 	export class SpinnerOption<T extends Record<string, any>> {
-		name?: string;
+		name?: LocalizedText;
 		element?: Component<T>;
 		props?: T;
 
-		constructor(name?: string, element?: Component<T>, props?: T) {
+		constructor(name?: LocalizedText, element?: Component<T>, props?: T) {
 			this.name = name;
 			this.element = element;
 			this.props = props;
@@ -37,6 +38,8 @@
 		type SpinnerStage
 	} from './advancedTileState';
 	import { playSpinnerIntroWithSound } from './spinnerVideo';
+	import { resolveText } from '$lib/i18n/text';
+	import { m } from '$lib/paraglide/messages';
 
 	const {
 		players,
@@ -236,7 +239,7 @@
 			{#if videoPlaybackFailed}
 				<div class="absolute inset-0 flex items-center justify-center bg-black/45">
 					<p class="rounded bg-black/70 px-4 py-2 text-center text-white">
-						Pyörää valmistellaan...
+						{m.wheel_preparing()}
 					</p>
 				</div>
 			{/if}
@@ -260,7 +263,7 @@
 				class="absolute left-1/2 z-1 w-[10%] translate-x-[-50%] object-contain"
 				style="top: {topOffset}%"
 				src={RajuOsoitin}
-				alt="Raju Osoitin"
+				alt={m.wheel_pointer_alt()}
 			/>
 		</div>
 	{/if}
@@ -268,7 +271,7 @@
 	{#if visibleLayers.showResult}
 		<div class="absolute inset-0 z-30">
 			<Overlay
-				message={options[chosen].name}
+				message={resolveText(options[chosen].name)}
 				AddedElement={options[chosen].element}
 				customElementProps={{ ...options[chosen].props, tileState, setTileState, canAct }}
 				bind:addedElementInstance

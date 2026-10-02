@@ -3,6 +3,16 @@
 
 	const minPlayers = 2;
 	const maxPlayers = 50;
+	const maxNameLength = 100;
+
+	// Zod messages are created once at module load, so they hold keys that are translated when
+	// rendered (see translateError) instead of text in a fixed language.
+	const validationErrors = {
+		nameRequired: 'name_required',
+		nameMax: 'name_max',
+		minPlayers: 'min_players',
+		maxPlayers: 'max_players'
+	} as const;
 
 	const readonlyPlayerImages: [string, ...string[]] = [
 		'default',
@@ -16,15 +26,15 @@
 				z.object({
 					name: z
 						.string()
-						.min(1, 'Nimi on pakollinen')
-						.max(100, 'Nimi voi olla enintään 100 merkkiä pitkä'),
+						.min(1, validationErrors.nameRequired)
+						.max(maxNameLength, validationErrors.nameMax),
 					image: z.enum(readonlyPlayerImages),
 					id: z.string().optional(),
 					position: z.number().optional()
 				})
 			)
-			.min(minPlayers, `Pelaajia tulee olla vähintään ${minPlayers}.`)
-			.max(maxPlayers, `Pelaajia voi olla enintään ${maxPlayers}.`)
+			.min(minPlayers, validationErrors.minPlayers)
+			.max(maxPlayers, validationErrors.maxPlayers)
 			.default([
 				{
 					name: '',
@@ -53,6 +63,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import { Player } from '$lib/player';
+	import { m } from '$lib/paraglide/messages';
 
 	const {
 		onSubmit,
@@ -60,7 +71,7 @@
 		lockedPlayerIds = [],
 		onPlayerRemove = () => {},
 		onPlayerAdd,
-		submitText = 'Aloita peli',
+		submitText,
 		compact = false
 	}: {
 		onSubmit: (players: PlayerList) => void;
@@ -73,6 +84,21 @@
 	} = $props();
 
 	let selectedImages: SvelteSet<string> = $state(new SvelteSet());
+
+	function translateError(error: string) {
+		switch (error) {
+			case validationErrors.nameRequired:
+				return m.common_name_required();
+			case validationErrors.nameMax:
+				return m.selector_name_max({ count: maxNameLength });
+			case validationErrors.minPlayers:
+				return m.selector_min_players({ count: minPlayers });
+			case validationErrors.maxPlayers:
+				return m.selector_max_players({ count: maxPlayers });
+			default:
+				return error;
+		}
+	}
 
 	const zodObject = zod(formSchema);
 
@@ -116,16 +142,14 @@
 
 	$effect(() => {
 		selectedImages = new SvelteSet(
-			$formData.players
-				.map((player) => player.image)
-				.filter((image) => image !== 'default')
+			$formData.players.map((player) => player.image).filter((image) => image !== 'default')
 		);
 	});
 </script>
 
 <form class="flex flex-col space-y-6" use:enhance>
 	<Fieldset {form} name="players">
-		<Legend class="text-lg">Pelaajat</Legend>
+		<Legend class="text-lg">{m.common_players()}</Legend>
 		{#each $formData.players as _, i}
 			{@const playerId = $formData.players[i].id}
 			{@const isLocked = !!playerId && lockedPlayerIds.includes(playerId)}
@@ -134,7 +158,7 @@
 					{#snippet children({ props })}
 						<div class="mt-5 flex items-end">
 							<div class="mr-2 grow-1">
-								<Form.Label class="">Nimi</Form.Label>
+								<Form.Label class="">{m.common_name()}</Form.Label>
 								<Input
 									class="mt-2"
 									{...props}
@@ -147,12 +171,18 @@
 								disabled={$formData.players.length <= minPlayers || isLocked}
 								onclick={() => removePlayerByIndex(i)}
 							>
-								Poista
+								{m.common_remove()}
 							</Form.Button>
 						</div>
 					{/snippet}
 				</Form.Control>
-				<FieldErrors class="text-red-500" />
+				<FieldErrors class="text-red-500">
+					{#snippet children({ errors, errorProps })}
+						{#each errors as error}
+							<div {...errorProps}>{translateError(error)}</div>
+						{/each}
+					{/snippet}
+				</FieldErrors>
 			</ElementField>
 			<ElementField {form} name={`players[${i}].image`}>
 				<Form.Control>
@@ -166,9 +196,9 @@
 								})}
 							>
 								<div class="flex w-full items-center space-x-2">
-									<h4 class="text-sm font-semibold">Valitse pelihahmo</h4>
+									<h4 class="text-sm font-semibold">{m.common_choose_character()}</h4>
 									<ChevronsUpDownIcon class="ml-auto" />
-									<span class="sr-only">Toggle</span>
+									<span class="sr-only">{m.common_toggle()}</span>
 								</div>
 							</Collapsible.Trigger>
 							<Collapsible.Content>
@@ -187,15 +217,13 @@
 											e.preventDefault();
 										}}
 									>
-										<p class="text-center text-xs">Ei hahmoa</p>
+										<p class="text-center text-xs">{m.common_no_character()}</p>
 									</Toggle>
 									{#each Object.entries(playerImages) as [name, image]}
 										<Toggle
 											class="flex h-[unset] w-full flex-col items-center justify-center p-3"
-											disabled={
-												isLocked ||
-												(selectedImages.has(name) && $formData.players[i].image !== name)
-											}
+											disabled={isLocked ||
+												(selectedImages.has(name) && $formData.players[i].image !== name)}
 											pressed={$formData.players[i].image === name}
 											onclick={(e) => {
 												selectedImages.delete($formData.players[i].image);
@@ -213,13 +241,25 @@
 						</Collapsible.Root>
 					{/snippet}
 				</Form.Control>
-				<FieldErrors class="text-red-500" />
+				<FieldErrors class="text-red-500">
+					{#snippet children({ errors, errorProps })}
+						{#each errors as error}
+							<div {...errorProps}>{translateError(error)}</div>
+						{/each}
+					{/snippet}
+				</FieldErrors>
 			</ElementField>
 		{/each}
-		<FieldErrors class="text-red-500" />
+		<FieldErrors class="text-red-500">
+			{#snippet children({ errors, errorProps })}
+				{#each errors as error}
+					<div {...errorProps}>{translateError(error)}</div>
+				{/each}
+			{/snippet}
+		</FieldErrors>
 	</Fieldset>
 	<Form.Button type="button" onclick={addPlayer} disabled={$formData.players.length >= maxPlayers}>
-		Lisää pelaaja
+		{m.selector_add_player()}
 	</Form.Button>
-	<Form.Button>{submitText}</Form.Button>
+	<Form.Button>{submitText ?? m.selector_start_game()}</Form.Button>
 </form>
