@@ -1,0 +1,1 @@
+nix run github:braiins/llm-jail#claude -- --dangerous --no-net-filter
