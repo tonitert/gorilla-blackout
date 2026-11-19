@@ -8,7 +8,6 @@ on:
   push:
     branches:
       - master
-      - feat/build-images-ci # TEMP: test image build before merging; remove before merge
     paths:
       - 'backend/**'
       - '.github/workflows/publish-backend-image.yml'
